@@ -97,6 +97,22 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
     // The lead selection is handled in the FormFieldRenderer component
   };
 
+  // Custom validation function for Offered stage
+  const validateOfferedStage = (data: Partial<Deal>): boolean => {
+    const requiredOfferedFields = ['business_value', 'decision_maker_level', 'current_status', 'closing'];
+    
+    return requiredOfferedFields.every(field => {
+      const value = data[field as keyof Deal];
+      const isValid = value !== undefined && 
+                     value !== null && 
+                     value !== '' &&
+                     String(value).trim() !== '';
+      
+      console.log(`Offered stage validation - Field ${field}: value = ${value}, isValid = ${isValid}`);
+      return isValid;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -135,14 +151,23 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
         }
       }
       
-      const validationResult = validateRequiredFields(formData, currentStage);
+      // Use custom validation for Offered stage, standard validation for others
+      let validationResult: boolean;
+      if (currentStage === 'Offered') {
+        validationResult = validateOfferedStage(formData);
+      } else {
+        validationResult = validateRequiredFields(formData, currentStage);
+      }
+      
       console.log("Validation result:", validationResult);
       
       if (!validationResult) {
         console.error("Required fields validation failed");
         toast({
           title: "Validation Error",
-          description: "Please fill in all required fields before saving.",
+          description: currentStage === 'Offered' ? 
+            "Please fill in Business Value, Decision Maker Level, Current Status, and Closing before saving." :
+            "Please fill in all required fields before saving.",
           variant: "destructive",
         });
         return;
@@ -315,18 +340,19 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
       availableStages.push(allStages[i]);
     }
     
-    // Add next stage if it exists and requirements are met
-    const nextStage = getNextStage(currentStage);
-    if (nextStage && validateRequiredFields(formData, currentStage) && 
-        validateDateLogic(formData).isValid && 
-        (currentStage !== 'Won' || validateRevenueSum(formData).isValid)) {
-      availableStages.push(nextStage);
-    }
-    
-    // Add final stages if in Offered stage and requirements are met
-    if (currentStage === 'Offered' && validateRequiredFields(formData, currentStage) && 
-        validateDateLogic(formData).isValid) {
-      availableStages.push('Won', 'Lost', 'Dropped');
+    // For Offered stage, add final stages if required fields are filled
+    if (currentStage === 'Offered') {
+      if (validateOfferedStage(formData) && validateDateLogic(formData).isValid) {
+        availableStages.push('Won', 'Lost', 'Dropped');
+      }
+    } else {
+      // Add next stage if it exists and requirements are met
+      const nextStage = getNextStage(currentStage);
+      if (nextStage && validateRequiredFields(formData, currentStage) && 
+          validateDateLogic(formData).isValid && 
+          (currentStage !== 'Won' || validateRevenueSum(formData).isValid)) {
+        availableStages.push(nextStage);
+      }
     }
     
     return availableStages;
@@ -337,18 +363,19 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
     return availableStages.includes(targetStage);
   };
 
+  // Update validation logic for different stages
   const canMoveToNextStage = !isCreating && 
     getNextStage(currentStage) !== null && 
-    validateRequiredFields(formData, currentStage) &&
+    (currentStage === 'Offered' ? validateOfferedStage(formData) : validateRequiredFields(formData, currentStage)) &&
     validateDateLogic(formData).isValid &&
     (currentStage !== 'Won' || validateRevenueSum(formData).isValid);
 
   const canMoveToFinalStage = !isCreating && 
     currentStage === 'Offered' && 
-    validateRequiredFields(formData, currentStage) &&
+    validateOfferedStage(formData) &&
     validateDateLogic(formData).isValid;
 
-  const canSave = validateRequiredFields(formData, currentStage) && 
+  const canSave = (currentStage === 'Offered' ? validateOfferedStage(formData) : validateRequiredFields(formData, currentStage)) && 
     validateDateLogic(formData).isValid &&
     (currentStage !== 'Won' || validateRevenueSum(formData).isValid);
 
@@ -434,15 +461,20 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
               )}
               
               {/* Validation Message */}
-              {!isCreating && (!validateRequiredFields(formData, currentStage) || 
+              {!isCreating && (
+                (currentStage === 'Offered' && !validateOfferedStage(formData)) || 
+                (currentStage !== 'Offered' && !validateRequiredFields(formData, currentStage)) || 
                 !validateDateLogic(formData).isValid || 
-                (currentStage === 'Won' && !validateRevenueSum(formData).isValid)) && (
+                (currentStage === 'Won' && !validateRevenueSum(formData).isValid)
+              ) && (
                 <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
                   {!validateDateLogic(formData).isValid ? 
                     validateDateLogic(formData).error : 
                     (currentStage === 'Won' && !validateRevenueSum(formData).isValid) ?
                       validateRevenueSum(formData).error :
-                      "Complete all required fields to enable stage progression"
+                      currentStage === 'Offered' ?
+                        "Complete Business Value, Decision Maker Level, Current Status, and Closing to enable stage progression" :
+                        "Complete all required fields to enable stage progression"
                   }
                 </div>
               )}
