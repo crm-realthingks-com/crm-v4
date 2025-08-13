@@ -87,41 +87,69 @@ export const KanbanBoard = ({
   };
 
   const validateRequiredFields = (deal: Deal): boolean => {
+    console.log("=== VALIDATION DEBUG FOR STAGE:", deal.stage, "===");
     const requiredFields = getRequiredFieldsForStage(deal.stage);
+    console.log("Required fields:", requiredFields);
+    console.log("Current form data:", deal);
     
     return requiredFields.every(field => {
       const value = deal[field as keyof Deal];
+      console.log(`Validating field ${field} with value:`, { value, _type: typeof value }, `(type: ${typeof value})`);
       
       if (field === 'is_recurring') {
-        return value !== undefined && value !== null;
+        const isValid = value !== undefined && value !== null;
+        console.log(`is_recurring field ${field} validation result:`, isValid);
+        console.log(`Field ${field}: value = ${value}, isValid = ${isValid}`);
+        return isValid;
       }
       
-      return value !== undefined && 
+      if (field === 'priority') {
+        const isValid = value !== undefined && value !== null && value !== '';
+        console.log(`Priority field ${field} validation result:`, isValid);
+        console.log(`Field ${field}: value = ${value}, isValid = ${isValid}`);
+        return isValid;
+      }
+      
+      const isValid = value !== undefined && 
              value !== null && 
              value !== '' &&
              String(value).trim() !== '';
+      
+      console.log(`Generic field ${field} validation result:`, isValid);
+      console.log(`Field ${field}: value = ${value}, isValid = ${isValid}`);
+      return isValid;
     });
   };
 
   const canMoveToStage = (deal: Deal, targetStage: DealStage): boolean => {
+    console.log(`=== CHECKING MOVE FROM ${deal.stage} TO ${targetStage} ===`);
+    
     const currentStageIndex = getStageIndex(deal.stage);
     const targetStageIndex = getStageIndex(targetStage);
     
+    // Allow moving backwards to any previous stage
     if (targetStageIndex < currentStageIndex) {
+      console.log("Moving backwards - allowed");
       return true;
     }
     
     const nextStage = getNextStage(deal.stage);
     const finalStages: DealStage[] = ['Won', 'Lost', 'Dropped'];
     
+    // Special handling for moving from Offered to final stages
     if (deal.stage === 'Offered' && finalStages.includes(targetStage)) {
-      return validateRequiredFields(deal);
+      console.log("Moving from Offered to final stage - allowed without validation");
+      return true; // Allow moving from Offered to any final stage without validation
     }
     
+    // For forward moves to the next stage, validate current stage requirements
     if (targetStage === nextStage) {
-      return validateRequiredFields(deal);
+      const isValid = validateRequiredFields(deal);
+      console.log("Moving to next stage, validation result:", isValid);
+      return isValid;
     }
     
+    console.log("Invalid move - not next stage or final stage");
     return false;
   };
 
@@ -135,6 +163,8 @@ export const KanbanBoard = ({
     const deal = deals.find(d => d.id === draggableId);
     
     if (!deal || deal.stage === newStage) return;
+
+    console.log(`Attempting to move deal from ${deal.stage} to ${newStage}`);
 
     if (!canMoveToStage(deal, newStage)) {
       const requiredFields = getRequiredFieldsForStage(deal.stage);
@@ -163,12 +193,14 @@ export const KanbanBoard = ({
     }
 
     try {
+      console.log(`Moving deal ${draggableId} to stage ${newStage}`);
       await onUpdateDeal(draggableId, { stage: newStage });
       toast({
         title: "Deal Updated",
         description: `Deal moved to ${newStage} stage`,
       });
     } catch (error) {
+      console.error("Error updating deal stage:", error);
       toast({
         title: "Error",
         description: "Failed to update deal stage",
@@ -232,6 +264,7 @@ export const KanbanBoard = ({
 
   const handleDealCardAction = async (dealId: string, newStage: DealStage) => {
     try {
+      console.log(`Card action: Moving deal ${dealId} to stage ${newStage}`);
       await onUpdateDeal(dealId, { stage: newStage });
       toast({
         title: "Deal Updated",
@@ -307,7 +340,7 @@ export const KanbanBoard = ({
           <div 
             className="grid gap-3 h-full overflow-x-auto deals-scrollbar"
             style={{ 
-              gridTemplateColumns: `repeat(${visibleStages.length}, minmax(260px, 1fr))`,
+              gridTemplateColumns: `repeat(${visibleStages.length}, minmax(280px, 1fr))`,
               scrollbarWidth: 'thin',
               scrollbarColor: 'hsl(var(--border)) transparent'
             }}
