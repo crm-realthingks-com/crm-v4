@@ -284,6 +284,7 @@ export const KanbanBoard = ({
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
+      {/* Top search and controls bar */}
       <div className="flex-shrink-0 px-6 py-3 bg-background border-b border-border">
         <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-1 min-w-0">
@@ -317,7 +318,59 @@ export const KanbanBoard = ({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden px-4 py-3">
+      {/* Sticky stage headers */}
+      <div className="flex-shrink-0 px-4 pt-3 bg-background border-b border-border/30 z-10">
+        <div 
+          className="grid gap-3"
+          style={{ 
+            gridTemplateColumns: `repeat(${visibleStages.length}, minmax(280px, 1fr))`
+          }}
+        >
+          {visibleStages.map((stage) => {
+            const stageDeals = getDealsByStage(stage);
+            const selectedInStage = stageDeals.filter(deal => selectedDeals.has(deal.id)).length;
+            const allSelected = selectedInStage === stageDeals.length && stageDeals.length > 0;
+            
+            return (
+              <div key={stage} className={`p-3 rounded-lg border-2 ${STAGE_COLORS[stage]} transition-all hover:shadow-md`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    {selectionMode && (
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={(checked) => handleSelectAllInStage(stage, Boolean(checked))}
+                        className="transition-colors flex-shrink-0"
+                      />
+                    )}
+                    <h3 className="font-semibold text-base truncate">{stage}</h3>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-sm font-medium whitespace-nowrap">
+                      {stageDeals.length}
+                      {selectionMode && selectedInStage > 0 && (
+                        <span className="text-primary ml-1">({selectedInStage})</span>
+                      )}
+                    </span>
+                    {stage === 'Lead' && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onCreateDeal(stage)}
+                        className="hover-scale flex-shrink-0 p-1 h-7 w-7"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Scrollable content area */}
+      <div className="flex-1 min-h-0 overflow-hidden px-4 pb-3">
         <style>
           {`
             .deals-scrollbar::-webkit-scrollbar {
@@ -347,44 +400,9 @@ export const KanbanBoard = ({
           >
             {visibleStages.map((stage) => {
               const stageDeals = getDealsByStage(stage);
-              const selectedInStage = stageDeals.filter(deal => selectedDeals.has(deal.id)).length;
-              const allSelected = selectedInStage === stageDeals.length && stageDeals.length > 0;
               
               return (
                 <div key={stage} className="flex flex-col h-full min-w-0">
-                  <div className={`p-3 rounded-lg border-2 ${STAGE_COLORS[stage]} mb-3 transition-all hover:shadow-md flex-shrink-0`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {selectionMode && (
-                          <Checkbox
-                            checked={allSelected}
-                            onCheckedChange={(checked) => handleSelectAllInStage(stage, Boolean(checked))}
-                            className="transition-colors flex-shrink-0"
-                          />
-                        )}
-                        <h3 className="font-semibold text-base truncate">{stage}</h3>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-sm font-medium whitespace-nowrap">
-                          {stageDeals.length}
-                          {selectionMode && selectedInStage > 0 && (
-                            <span className="text-primary ml-1">({selectedInStage})</span>
-                          )}
-                        </span>
-                        {stage === 'Lead' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => onCreateDeal(stage)}
-                            className="hover-scale flex-shrink-0 p-1 h-7 w-7"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  
                   <Droppable droppableId={stage}>
                     {(provided, snapshot) => (
                       <div
