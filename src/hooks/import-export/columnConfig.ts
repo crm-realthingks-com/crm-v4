@@ -1,4 +1,3 @@
-
 // Simplified interface for column configuration
 interface ColumnConfig {
   allowedColumns: string[];
@@ -22,7 +21,12 @@ export const getColumnConfig = (table: string): ColumnConfig => {
         'contact_source',
         'industry',
         'country',
-        'description'
+        'description',
+        'contact_owner',
+        'created_by',
+        'modified_by',
+        'created_time',
+        'modified_time'
       ],
       required: ['contact_name'],
       enums: {
@@ -43,7 +47,12 @@ export const getColumnConfig = (table: string): ColumnConfig => {
         'contact_source',
         'industry',
         'country',
-        'description'
+        'description',
+        'contact_owner',
+        'created_by',
+        'modified_by',
+        'created_time',
+        'modified_time'
       ],
       required: ['contact_name'],
       enums: {

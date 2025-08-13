@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { CSVParser } from '@/utils/csvParser';
@@ -56,7 +55,15 @@ export class CSVProcessor {
   }
 
   private async validateHeaders(headers: string[], tableName: string) {
-    if (tableName === 'deals') {
+    if (tableName === 'contacts' || tableName === 'contacts_module') {
+      const hasRequiredHeaders = headers.some(h => {
+        const mapped = this.mapHeader(h);
+        return mapped === 'contact_name';
+      });
+      if (!hasRequiredHeaders) {
+        throw new Error('Missing required header: contact_name is required for contacts import. Please check your CSV headers.');
+      }
+    } else if (tableName === 'deals') {
       const hasRequiredHeaders = headers.some(h => this.mapHeader(h) === 'deal_name') && 
                                  headers.some(h => this.mapHeader(h) === 'stage');
       if (!hasRequiredHeaders) {
@@ -230,16 +237,20 @@ export class CSVProcessor {
       }
     }
 
+    // Set user information for all records
     record.created_by = options.userId;
-    if (options.tableName !== 'meetings') {
-      record.modified_by = options.userId;
+    record.modified_by = options.userId;
+    
+    // Set contact_owner to the current user if not provided
+    if ((options.tableName === 'contacts' || options.tableName === 'contacts_module') && !record.contact_owner) {
+      record.contact_owner = options.userId;
     }
 
     return { type: 'valid' as const, record };
   }
 
   private async handleDuplicate(record: any, rowIndex: number, options: ProcessOptions) {
-    console.log(`Found duplicate record ${rowIndex + 1}: ${record.deal_name || 'Unknown'}, attempting update...`);
+    console.log(`Found duplicate record ${rowIndex + 1}: ${record.deal_name || record.contact_name || 'Unknown'}, attempting update...`);
     
     if (options.tableName === 'deals') {
       return await this.updateDuplicateDeal(record, rowIndex, options);
@@ -297,9 +308,10 @@ export class CSVProcessor {
 
   private async insertRecord(record: any, rowIndex: number, options: ProcessOptions) {
     try {
-      // Set user ID for new records
-      record.created_by = options.userId;
-      record.modified_by = options.userId;
+      // Set timestamps for new records
+      const now = new Date().toISOString();
+      record.created_time = now;
+      record.modified_time = now;
 
       console.log(`Row ${rowIndex + 1}: Inserting new record:`, record);
       
@@ -341,7 +353,7 @@ export class CSVProcessor {
         return await supabase
           .from('contacts')
           .insert([record])
-          .select('id');
+          .select('id, contact_name');
       
       case 'leads':
         return await supabase

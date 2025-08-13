@@ -2,18 +2,23 @@
 // CSV utility functions for import/export
 
 export interface ContactCSVRow {
-  'ID': string;
-  'Contact Name': string;
-  'Company Name': string;
-  'Position': string;
-  'Email': string;
-  'Phone': string;
-  'LinkedIn': string;
-  'Website': string;
-  'Contact Source': string;
-  'Industry': string;
-  'Country': string;
-  'Description': string;
+  'id': string;
+  'contact_name': string;
+  'company_name': string;
+  'position': string;
+  'email': string;
+  'phone_no': string;
+  'linkedin': string;
+  'website': string;
+  'contact_source': string;
+  'industry': string;
+  'country': string;
+  'description': string;
+  'contact_owner': string;
+  'created_by': string;
+  'modified_by': string;
+  'created_time': string;
+  'modified_time': string;
 }
 
 export const exportContactsToCSV = (contacts: any[]) => {
@@ -23,20 +28,25 @@ export const exportContactsToCSV = (contacts: any[]) => {
     throw new Error('No contacts to export');
   }
 
-  // Define headers in the exact sequence requested
+  // Define headers in the exact sequence from the Supabase table
   const headers = [
-    'ID',
-    'Contact Name',
-    'Company Name',
-    'Position',
-    'Email',
-    'Phone',
-    'LinkedIn',
-    'Website',
-    'Contact Source',
-    'Industry',
-    'Country',
-    'Description'
+    'id',
+    'contact_name',
+    'company_name',
+    'position',
+    'email',
+    'phone_no',
+    'linkedin',
+    'website',
+    'contact_source',
+    'industry',
+    'country',
+    'description',
+    'contact_owner',
+    'created_by',
+    'modified_by',
+    'created_time',
+    'modified_time'
   ];
 
   // Convert contacts to CSV rows
@@ -52,7 +62,12 @@ export const exportContactsToCSV = (contacts: any[]) => {
     contact.contact_source || '',
     contact.industry || '',
     contact.country || '',
-    contact.description || ''
+    contact.description || '',
+    contact.contact_owner || '',
+    contact.created_by || '',
+    contact.modified_by || '',
+    contact.created_time || '',
+    contact.modified_time || ''
   ]);
 
   // Combine headers and data
@@ -178,25 +193,30 @@ export const parseCSVFile = async (file: File): Promise<ContactCSVRow[]> => {
             contact[header] = value;
           });
 
-          // Map to our expected format with flexible field matching
+          // Map to our expected format with exact field matching
           const mappedContact: ContactCSVRow = {
-            'ID': contact['ID'] || contact['id'] || '',
-            'Contact Name': contact['Contact Name'] || contact['contact_name'] || contact['name'] || '',
-            'Company Name': contact['Company Name'] || contact['company_name'] || contact['company'] || '',
-            'Position': contact['Position'] || contact['position'] || contact['title'] || '',
-            'Email': contact['Email'] || contact['email'] || '',
-            'Phone': contact['Phone'] || contact['phone_no'] || contact['phone'] || '',
-            'LinkedIn': contact['LinkedIn'] || contact['linkedin'] || '',
-            'Website': contact['Website'] || contact['website'] || '',
-            'Contact Source': contact['Contact Source'] || contact['contact_source'] || contact['source'] || '',
-            'Industry': contact['Industry'] || contact['industry'] || '',
-            'Country': contact['Country'] || contact['country'] || contact['region'] || '',
-            'Description': contact['Description'] || contact['description'] || ''
+            'id': contact['id'] || '',
+            'contact_name': contact['contact_name'] || contact['Contact Name'] || contact['name'] || '',
+            'company_name': contact['company_name'] || contact['Company Name'] || contact['company'] || '',
+            'position': contact['position'] || contact['Position'] || contact['title'] || '',
+            'email': contact['email'] || contact['Email'] || '',
+            'phone_no': contact['phone_no'] || contact['Phone'] || contact['phone'] || '',
+            'linkedin': contact['linkedin'] || contact['LinkedIn'] || '',
+            'website': contact['website'] || contact['Website'] || '',
+            'contact_source': contact['contact_source'] || contact['Contact Source'] || contact['source'] || '',
+            'industry': contact['industry'] || contact['Industry'] || '',
+            'country': contact['country'] || contact['Country'] || '',
+            'description': contact['description'] || contact['Description'] || '',
+            'contact_owner': contact['contact_owner'] || '',
+            'created_by': contact['created_by'] || '',
+            'modified_by': contact['modified_by'] || '',
+            'created_time': contact['created_time'] || '',
+            'modified_time': contact['modified_time'] || ''
           };
 
           console.log('Mapped contact:', mappedContact);
 
-          if (mappedContact['Contact Name']) {
+          if (mappedContact['contact_name']) {
             rows.push(mappedContact);
           }
         }

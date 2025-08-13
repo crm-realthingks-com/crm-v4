@@ -59,7 +59,24 @@ export const createHeaderMapper = (tableName: string) => {
         'description': 'description',
         'notes': 'description',
         'comments': 'description',
-        'remarks': 'description'
+        'remarks': 'description',
+        'contact_owner': 'contact_owner',
+        'contact owner': 'contact_owner',
+        'owner': 'contact_owner',
+        'created_by': 'created_by',
+        'created by': 'created_by',
+        'creator': 'created_by',
+        'modified_by': 'modified_by',
+        'modified by': 'modified_by',
+        'modifier': 'modified_by',
+        'created_time': 'created_time',
+        'created time': 'created_time',
+        'created at': 'created_time',
+        'creation date': 'created_time',
+        'modified_time': 'modified_time',
+        'modified time': 'modified_time',
+        'modified at': 'modified_time',
+        'modification date': 'modified_time'
       };
       
       // Check for mapping (case-insensitive)

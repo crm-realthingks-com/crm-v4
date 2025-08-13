@@ -61,44 +61,83 @@ export const useUserDisplayNames = (userIds: string[]) => {
           return;
         }
 
-        // Create the fetch promise
-        const fetchPromise = supabase.functions.invoke('admin-list-users')
-          .then(({ data, error }) => {
-            if (error) throw error;
+        // Try to get user data from profiles table first
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, "Email ID"')
+          .in('id', uncachedIds);
 
-            const userDisplayNames: Record<string, string> = {};
-            
-            data.users?.forEach((user: any) => {
-              if (uncachedIds.includes(user.id)) {
-                const displayName = user.user_metadata?.display_name || 
-                                   user.user_metadata?.full_name || 
-                                   "Unknown";
-                userDisplayNames[user.id] = displayName;
-                // Cache the result
-                displayNameCache.set(user.id, displayName);
-              }
-            });
+        const userDisplayNames: Record<string, string> = {};
 
-            // Mark missing users as "Unknown" and cache that too
-            uncachedIds.forEach(id => {
-              if (!userDisplayNames[id]) {
-                userDisplayNames[id] = "Unknown";
-                displayNameCache.set(id, "Unknown");
-              }
-            });
-
-            return userDisplayNames;
+        if (!profilesError && profiles) {
+          profiles.forEach((profile: any) => {
+            const displayName = profile.full_name || profile["Email ID"] || "User";
+            userDisplayNames[profile.id] = displayName;
+            displayNameCache.set(profile.id, displayName);
           });
+        }
 
-        // Store the promise to prevent duplicate fetches
-        pendingFetches.set(cacheKey, fetchPromise);
-
-        const newNames = await fetchPromise;
+        // For any missing profiles, try the edge function as fallback
+        const missingIds = uncachedIds.filter(id => !userDisplayNames[id]);
         
-        // Clean up the pending fetch
-        pendingFetches.delete(cacheKey);
+        if (missingIds.length > 0) {
+          // Create the fetch promise for edge function
+          const fetchPromise = supabase.functions.invoke('admin-list-users')
+            .then(({ data, error }) => {
+              if (error) {
+                console.warn('Edge function error, using fallback:', error);
+                // Set fallback names for missing users
+                missingIds.forEach(id => {
+                  userDisplayNames[id] = "User";
+                  displayNameCache.set(id, "User");
+                });
+                return userDisplayNames;
+              }
 
-        setDisplayNames(prev => ({ ...prev, ...newNames }));
+              data.users?.forEach((user: any) => {
+                if (missingIds.includes(user.id) && !userDisplayNames[user.id]) {
+                  const displayName = user.user_metadata?.display_name || 
+                                     user.user_metadata?.full_name || 
+                                     user.email ||
+                                     "User";
+                  userDisplayNames[user.id] = displayName;
+                  displayNameCache.set(user.id, displayName);
+                }
+              });
+
+              // Mark any still missing users
+              missingIds.forEach(id => {
+                if (!userDisplayNames[id]) {
+                  userDisplayNames[id] = "User";
+                  displayNameCache.set(id, "User");
+                }
+              });
+
+              return userDisplayNames;
+            })
+            .catch((error) => {
+              console.warn('Failed to fetch user display names:', error);
+              // Set fallback names for all missing users
+              missingIds.forEach(id => {
+                userDisplayNames[id] = "User";
+                displayNameCache.set(id, "User");
+              });
+              return userDisplayNames;
+            });
+
+          // Store the promise to prevent duplicate fetches
+          pendingFetches.set(cacheKey, fetchPromise);
+
+          const edgeFunctionResult = await fetchPromise;
+          
+          // Clean up the pending fetch
+          pendingFetches.delete(cacheKey);
+
+          // Merge with existing results
+          Object.assign(userDisplayNames, edgeFunctionResult);
+        }
+
+        setDisplayNames(prev => ({ ...prev, ...userDisplayNames }));
         
       } catch (error) {
         console.error('Error fetching user display names:', error);
@@ -106,8 +145,8 @@ export const useUserDisplayNames = (userIds: string[]) => {
         const fallbackNames: Record<string, string> = {};
         userIds.forEach(id => {
           if (!displayNameCache.has(id)) {
-            fallbackNames[id] = "Unknown";
-            displayNameCache.set(id, "Unknown");
+            fallbackNames[id] = "User";
+            displayNameCache.set(id, "User");
           }
         });
         setDisplayNames(prev => ({ ...prev, ...fallbackNames }));
