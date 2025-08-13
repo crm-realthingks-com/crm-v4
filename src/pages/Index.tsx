@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
 import { DashboardContent } from "@/components/dashboard/DashboardContent";
 
@@ -60,7 +59,9 @@ const Index = () => {
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <DashboardHeader />
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+      </div>
       <DashboardStats
         totalContacts={stats.totalContacts}
         totalLeads={stats.totalLeads}
