@@ -13,6 +13,11 @@ interface ProcessOptions {
   onProgress?: (processed: number, total: number) => void;
 }
 
+type ProcessResult = {
+  type: 'success' | 'update' | 'duplicate' | 'error';
+  error?: string;
+};
+
 export class CSVProcessor {
   private config: any;
   private mapHeader: (header: string) => string | null;
@@ -203,7 +208,7 @@ export class CSVProcessor {
     return hasValidData ? record : null;
   }
 
-  private async processRecord(record: any, rowIndex: number, options: ProcessOptions) {
+  private async processRecord(record: any, rowIndex: number, options: ProcessOptions): Promise<ProcessResult> {
     // Set required defaults and validate based on table type
     const validationResult = this.validateRecord(record, rowIndex, options);
     if (validationResult.type === 'error') {
@@ -220,7 +225,7 @@ export class CSVProcessor {
     return await this.insertRecord(record, rowIndex, options);
   }
 
-  private validateRecord(record: any, rowIndex: number, options: ProcessOptions) {
+  private validateRecord(record: any, rowIndex: number, options: ProcessOptions): ProcessResult {
     if (options.tableName === 'deals') {
       return this.validateDealRecord(record, rowIndex);
     } else {
@@ -228,7 +233,7 @@ export class CSVProcessor {
     }
   }
 
-  private validateDealRecord(record: any, rowIndex: number) {
+  private validateDealRecord(record: any, rowIndex: number): ProcessResult {
     // Ensure required fields have values
     if (!record.deal_name && record.project_name) {
       record.deal_name = record.project_name;
@@ -236,7 +241,7 @@ export class CSVProcessor {
     }
     if (!record.deal_name) {
       return {
-        type: 'error' as const,
+        type: 'error',
         error: `Row ${rowIndex + 1}: Missing deal_name - this field is required`
       };
     }
@@ -248,15 +253,15 @@ export class CSVProcessor {
     const isValid = this.validateImportRecord(record);
     if (!isValid) {
       return {
-        type: 'error' as const,
+        type: 'error',
         error: `Row ${rowIndex + 1}: Invalid deal data for "${record.deal_name}" - check deal_name and stage values`
       };
     }
 
-    return { type: 'valid' as const, record };
+    return { type: 'success' };
   }
 
-  private validateOtherRecord(record: any, rowIndex: number, options: ProcessOptions) {
+  private validateOtherRecord(record: any, rowIndex: number, options: ProcessOptions): ProcessResult {
     console.log(`Row ${rowIndex + 1}: Validating record:`, record);
     
     // For contacts, ensure we have at least contact_name
@@ -278,15 +283,15 @@ export class CSVProcessor {
     }
 
     console.log(`Row ${rowIndex + 1}: Final validated record:`, record);
-    return { type: 'valid' as const, record };
+    return { type: 'success' };
   }
 
-  private async handleDuplicate(record: any, rowIndex: number, options: ProcessOptions) {
+  private async handleDuplicate(record: any, rowIndex: number, options: ProcessOptions): Promise<ProcessResult> {
     console.log(`Found duplicate record ${rowIndex + 1}: ${record.deal_name || record.contact_name || 'Unknown'}, skipping...`);
-    return { type: 'duplicate' as const };
+    return { type: 'duplicate' };
   }
 
-  private async insertRecord(record: any, rowIndex: number, options: ProcessOptions) {
+  private async insertRecord(record: any, rowIndex: number, options: ProcessOptions): Promise<ProcessResult> {
     try {
       // Set timestamps for new records
       const now = new Date().toISOString();
@@ -302,22 +307,22 @@ export class CSVProcessor {
       if (insertResult.error) {
         console.error(`Row ${rowIndex + 1}: Error inserting record:`, insertResult.error);
         return {
-          type: 'error' as const,
+          type: 'error',
           error: `Row ${rowIndex + 1}: Insert failed - ${insertResult.error.message}`
         };
       } else if (insertResult.data && insertResult.data.length > 0) {
         console.log(`Row ${rowIndex + 1}: Successfully inserted new record:`, insertResult.data[0]);
-        return { type: 'success' as const };
+        return { type: 'success' };
       }
 
       return {
-        type: 'error' as const,
+        type: 'error',
         error: `Row ${rowIndex + 1}: Unknown insert error`
       };
     } catch (error: any) {
       console.error(`Row ${rowIndex + 1}: Insert exception:`, error);
       return {
-        type: 'error' as const,
+        type: 'error',
         error: `Row ${rowIndex + 1}: Insert error - ${error.message}`
       };
     }
