@@ -640,6 +640,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      log_data_access: {
+        Args: {
+          p_table_name: string
+          p_operation: string
+          p_record_id?: string
+        }
+        Returns: undefined
+      }
       log_security_event: {
         Args: {
           p_action: string
