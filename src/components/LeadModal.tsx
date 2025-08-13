@@ -76,9 +76,6 @@ const regions = [
   "EU",
   "US", 
   "ASIA",
-  "APAC",
-  "LATAM",
-  "MEA",
   "Other"
 ];
 
