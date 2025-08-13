@@ -18,8 +18,20 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    console.log('get-user-names: Creating admin client');
+    console.log('get-user-names: Environment check - URL exists:', !!supabaseUrl);
+    console.log('get-user-names: Environment check - Service key exists:', !!supabaseServiceKey);
     
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('get-user-names: Missing environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     // Create a Supabase client with service role key for admin access
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -37,53 +49,56 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Try to get user data from auth.users (using service role)
-    console.log('get-user-names: Fetching users from auth.users');
-    const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
-    
-    console.log('get-user-names: Auth users result:', { 
-      count: authUsers?.users?.length || 0, 
-      error: authError 
-    });
-
     const userDisplayNames: Record<string, string> = {};
 
-    if (!authError && authUsers?.users) {
-      // Filter for requested user IDs and extract display names
-      authUsers.users.forEach((user: any) => {
-        if (userIds.includes(user.id)) {
-          const displayName = user.user_metadata?.full_name || 
-                             user.user_metadata?.display_name || 
-                             user.email ||
-                             "User";
-          userDisplayNames[user.id] = displayName;
-          console.log(`get-user-names: Set display name for ${user.id}: ${displayName}`);
-        }
+    // Try profiles table first (this is more reliable)
+    console.log('get-user-names: Fetching from profiles table');
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, full_name, "Email ID"')
+      .in('id', userIds);
+
+    console.log('get-user-names: Profiles result:', { 
+      count: profiles?.length || 0, 
+      error: profilesError 
+    });
+
+    if (!profilesError && profiles) {
+      profiles.forEach((profile: any) => {
+        const displayName = profile.full_name || profile["Email ID"] || "User";
+        userDisplayNames[profile.id] = displayName;
+        console.log(`get-user-names: Set display name from profiles for ${profile.id}: ${displayName}`);
       });
     }
 
-    // For any missing users, try profiles table as fallback
+    // For any missing users, try auth.users as fallback
     const missingIds = userIds.filter((id: string) => !userDisplayNames[id]);
     
     if (missingIds.length > 0) {
-      console.log('get-user-names: Fetching missing users from profiles:', missingIds);
+      console.log('get-user-names: Fetching missing users from auth.users:', missingIds);
       
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name, "Email ID"')
-        .in('id', missingIds);
-
-      console.log('get-user-names: Profiles result:', { 
-        count: profiles?.length || 0, 
-        error: profilesError 
-      });
-
-      if (!profilesError && profiles) {
-        profiles.forEach((profile: any) => {
-          const displayName = profile.full_name || profile["Email ID"] || "User";
-          userDisplayNames[profile.id] = displayName;
-          console.log(`get-user-names: Set display name from profiles for ${profile.id}: ${displayName}`);
+      try {
+        const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+        
+        console.log('get-user-names: Auth users result:', { 
+          count: authData?.users?.length || 0, 
+          error: authError 
         });
+
+        if (!authError && authData?.users) {
+          authData.users.forEach((user: any) => {
+            if (missingIds.includes(user.id)) {
+              const displayName = user.user_metadata?.full_name || 
+                               user.user_metadata?.display_name || 
+                               user.email ||
+                               "User";
+              userDisplayNames[user.id] = displayName;
+              console.log(`get-user-names: Set display name from auth for ${user.id}: ${displayName}`);
+            }
+          });
+        }
+      } catch (authError) {
+        console.error('get-user-names: Auth query failed:', authError);
       }
     }
 

@@ -63,40 +63,42 @@ export const useUserDisplayNames = (userIds: string[]) => {
           return;
         }
 
-        console.log('useUserDisplayNames: Fetching uncached user IDs via edge function:', uncachedIds);
+        console.log('useUserDisplayNames: Fetching uncached user IDs:', uncachedIds);
 
-        // Use the new edge function
-        const { data, error } = await supabase.functions.invoke('get-user-names', {
-          body: { userIds: uncachedIds }
+        // Try direct profiles table query first as fallback
+        console.log('useUserDisplayNames: Trying direct profiles query...');
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, "Email ID"')
+          .in('id', uncachedIds);
+
+        console.log('useUserDisplayNames: Profiles query result:', { 
+          data: profilesData, 
+          error: profilesError 
         });
 
-        console.log('useUserDisplayNames: Edge function result:', { data, error });
+        const newDisplayNames: Record<string, string> = {};
 
-        if (error) {
-          console.error('useUserDisplayNames: Edge function error:', error);
-          throw error;
+        if (!profilesError && profilesData) {
+          profilesData.forEach((profile) => {
+            const displayName = profile.full_name || profile["Email ID"] || "User";
+            newDisplayNames[profile.id] = displayName;
+            displayNameCache.set(profile.id, displayName);
+            console.log(`useUserDisplayNames: Set display name from profiles for ${profile.id}: ${displayName}`);
+          });
         }
 
-        if (data?.userDisplayNames) {
-          const newDisplayNames = data.userDisplayNames;
-          console.log('useUserDisplayNames: Received display names:', newDisplayNames);
-
-          // Cache the results
-          Object.entries(newDisplayNames).forEach(([id, name]) => {
-            displayNameCache.set(id, name as string);
-          });
-
-          setDisplayNames(prev => ({ ...prev, ...newDisplayNames }));
-        } else {
-          console.warn('useUserDisplayNames: No userDisplayNames in response');
-          // Set fallback names
-          const fallbackNames: Record<string, string> = {};
-          uncachedIds.forEach(id => {
-            fallbackNames[id] = "Unknown User";
+        // For any still missing users, set fallback
+        uncachedIds.forEach(id => {
+          if (!newDisplayNames[id]) {
+            newDisplayNames[id] = "Unknown User";
             displayNameCache.set(id, "Unknown User");
-          });
-          setDisplayNames(prev => ({ ...prev, ...fallbackNames }));
-        }
+            console.log(`useUserDisplayNames: Set fallback name for ${id}: Unknown User`);
+          }
+        });
+
+        console.log('useUserDisplayNames: Final result:', newDisplayNames);
+        setDisplayNames(prev => ({ ...prev, ...newDisplayNames }));
         
       } catch (error) {
         console.error('useUserDisplayNames: Error fetching user display names:', error);
