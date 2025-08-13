@@ -36,7 +36,7 @@ export const useUserDisplayNames = (userIds: string[]) => {
 
     const fetchDisplayNames = async () => {
       setLoading(true);
-      console.log('Fetching display names for user IDs:', validUserIds);
+      console.log('useUserDisplayNames: Fetching display names for user IDs:', validUserIds);
       
       try {
         // Check cache first for immediate display
@@ -53,7 +53,7 @@ export const useUserDisplayNames = (userIds: string[]) => {
 
         // Set cached names immediately to prevent flickering
         if (Object.keys(cachedNames).length > 0) {
-          console.log('Using cached names:', cachedNames);
+          console.log('useUserDisplayNames: Using cached names:', cachedNames);
           setDisplayNames(prev => ({ ...prev, ...cachedNames }));
         }
 
@@ -63,72 +63,43 @@ export const useUserDisplayNames = (userIds: string[]) => {
           return;
         }
 
-        console.log('Fetching uncached user IDs:', uncachedIds);
+        console.log('useUserDisplayNames: Fetching uncached user IDs via edge function:', uncachedIds);
 
-        // Try to get user data from profiles table first
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name, "Email ID"')
-          .in('id', uncachedIds);
+        // Use the new edge function
+        const { data, error } = await supabase.functions.invoke('get-user-names', {
+          body: { userIds: uncachedIds }
+        });
 
-        console.log('Profiles query result:', { data: profiles, error: profilesError });
+        console.log('useUserDisplayNames: Edge function result:', { data, error });
 
-        const userDisplayNames: Record<string, string> = {};
-
-        if (!profilesError && profiles && profiles.length > 0) {
-          profiles.forEach((profile: any) => {
-            const displayName = profile.full_name || profile["Email ID"] || "User";
-            userDisplayNames[profile.id] = displayName;
-            displayNameCache.set(profile.id, displayName);
-            console.log(`Set display name for ${profile.id}: ${displayName}`);
-          });
+        if (error) {
+          console.error('useUserDisplayNames: Edge function error:', error);
+          throw error;
         }
 
-        // For any missing profiles, try the edge function as fallback
-        const missingIds = uncachedIds.filter(id => !userDisplayNames[id]);
-        
-        if (missingIds.length > 0) {
-          console.log('Fetching missing user display names via edge function for:', missingIds);
-          
-          try {
-            const { data, error } = await supabase.functions.invoke('admin-list-users');
-            
-            if (!error && data?.users) {
-              console.log('Edge function returned users:', data.users.length);
-              
-              data.users.forEach((user: any) => {
-                if (missingIds.includes(user.id) && !userDisplayNames[user.id]) {
-                  const displayName = user.user_metadata?.full_name || 
-                                     user.user_metadata?.display_name || 
-                                     user.email ||
-                                     "User";
-                  userDisplayNames[user.id] = displayName;
-                  displayNameCache.set(user.id, displayName);
-                  console.log(`Set display name from edge function for ${user.id}: ${displayName}`);
-                }
-              });
-            } else {
-              console.warn('Edge function error:', error);
-            }
-          } catch (edgeError) {
-            console.warn('Failed to fetch user display names via edge function:', edgeError);
-          }
+        if (data?.userDisplayNames) {
+          const newDisplayNames = data.userDisplayNames;
+          console.log('useUserDisplayNames: Received display names:', newDisplayNames);
 
-          // Mark any still missing users with fallback
-          missingIds.forEach(id => {
-            if (!userDisplayNames[id]) {
-              userDisplayNames[id] = "Unknown User";
-              displayNameCache.set(id, "Unknown User");
-              console.log(`Set fallback name for ${id}: Unknown User`);
-            }
+          // Cache the results
+          Object.entries(newDisplayNames).forEach(([id, name]) => {
+            displayNameCache.set(id, name as string);
           });
-        }
 
-        console.log('Final user display names:', userDisplayNames);
-        setDisplayNames(prev => ({ ...prev, ...userDisplayNames }));
+          setDisplayNames(prev => ({ ...prev, ...newDisplayNames }));
+        } else {
+          console.warn('useUserDisplayNames: No userDisplayNames in response');
+          // Set fallback names
+          const fallbackNames: Record<string, string> = {};
+          uncachedIds.forEach(id => {
+            fallbackNames[id] = "Unknown User";
+            displayNameCache.set(id, "Unknown User");
+          });
+          setDisplayNames(prev => ({ ...prev, ...fallbackNames }));
+        }
         
       } catch (error) {
-        console.error('Error fetching user display names:', error);
+        console.error('useUserDisplayNames: Error fetching user display names:', error);
         // Set fallback names and cache them
         const fallbackNames: Record<string, string> = {};
         validUserIds.forEach(id => {

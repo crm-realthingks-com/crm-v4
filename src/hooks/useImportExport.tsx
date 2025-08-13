@@ -11,50 +11,97 @@ interface ImportExportOptions {
   tableName?: string;
 }
 
-export const useImportExport = ({ moduleName, onRefresh, tableName = 'contacts_module' }: ImportExportOptions) => {
+export const useImportExport = ({ moduleName, onRefresh, tableName = 'contacts' }: ImportExportOptions) => {
   const { user } = useAuth();
   
   const handleImport = async (file: File) => {
-    console.log('Import hook: Starting import process');
-    console.log('Import hook: File details:', { name: file.name, size: file.size, type: file.type });
-    console.log('Import hook: Table name:', tableName);
-    console.log('Import hook: User:', user);
+    console.log('useImportExport: Starting import process');
+    console.log('useImportExport: File details:', { 
+      name: file.name, 
+      size: file.size, 
+      type: file.type,
+      lastModified: file.lastModified
+    });
+    console.log('useImportExport: Table name:', tableName);
+    console.log('useImportExport: User:', user);
 
     if (!user?.id) {
-      console.error('Import hook: No user ID available');
+      const errorMsg = 'User not authenticated. Please log in and try again.';
+      console.error('useImportExport: No user ID available');
       toast({
-        title: "Error",
-        description: "User not authenticated. Please log in and try again.",
+        title: "Authentication Error",
+        description: errorMsg,
         variant: "destructive",
       });
-      throw new Error('User not authenticated');
+      throw new Error(errorMsg);
+    }
+
+    if (!file) {
+      const errorMsg = 'No file provided for import';
+      console.error('useImportExport:', errorMsg);
+      toast({
+        title: "File Error",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      throw new Error(errorMsg);
+    }
+
+    // Validate file type
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      const errorMsg = 'Please select a CSV file';
+      console.error('useImportExport: Invalid file type:', file.type);
+      toast({
+        title: "Invalid File Type",
+        description: errorMsg,
+        variant: "destructive",
+      });
+      throw new Error(errorMsg);
     }
 
     try {
-      console.log(`Import hook: Starting import of ${file.name} (${file.size} bytes) into ${tableName}`);
+      console.log(`useImportExport: Starting import of ${file.name} (${file.size} bytes) into ${tableName}`);
       
+      // Show initial loading toast
+      toast({
+        title: "Import Started",
+        description: `Processing ${file.name}...`,
+      });
+
       const text = await file.text();
-      console.log('Import hook: File content loaded, length:', text.length);
-      console.log('Import hook: First 200 characters:', text.substring(0, 200));
+      console.log('useImportExport: File content loaded, length:', text.length);
+      console.log('useImportExport: First 500 characters:', text.substring(0, 500));
       
       if (!text || text.trim().length === 0) {
-        throw new Error('CSV file is empty');
+        throw new Error('CSV file is empty or could not be read');
       }
 
+      // Basic CSV validation
+      const lines = text.split('\n').filter(line => line.trim());
+      if (lines.length < 2) {
+        throw new Error('CSV file must contain at least a header row and one data row');
+      }
+
+      console.log('useImportExport: CSV has', lines.length, 'lines');
+
       const processor = new CSVProcessor(tableName);
-      console.log('Import hook: CSV processor created');
+      console.log('useImportExport: CSV processor created for table:', tableName);
       
       const result = await processor.processCSV(text, {
         tableName,
-        userId: user.id
+        userId: user.id,
+        onProgress: (processed, total) => {
+          console.log(`useImportExport: Progress ${processed}/${total}`);
+        }
       });
 
-      console.log('Import hook: Processing complete:', result);
+      console.log('useImportExport: Processing complete:', result);
 
       const { successCount, updateCount, duplicateCount, errorCount, errors } = result;
 
-      console.log(`Import hook: Import completed - Success: ${successCount}, Updates: ${updateCount}, Errors: ${errorCount}, Duplicates: ${duplicateCount}`);
+      console.log(`useImportExport: Import completed - Success: ${successCount}, Updates: ${updateCount}, Errors: ${errorCount}, Duplicates: ${duplicateCount}`);
 
+      // Generate success message
       let message = '';
       if (successCount > 0) message += `${successCount} new records imported`;
       if (updateCount > 0) message += message ? `, ${updateCount} updated` : `${updateCount} records updated`;
@@ -66,6 +113,9 @@ export const useImportExport = ({ moduleName, onRefresh, tableName = 'contacts_m
           title: "Import Successful",
           description: message || "Import completed successfully",
         });
+        
+        console.log('useImportExport: Refreshing data after successful import...');
+        onRefresh();
       } else if (errorCount > 0) {
         toast({
           title: "Import Failed",
@@ -80,25 +130,29 @@ export const useImportExport = ({ moduleName, onRefresh, tableName = 'contacts_m
       }
 
       if (errorCount > 0 && errors.length > 0) {
-        console.log('Import hook: First 5 import errors:', errors.slice(0, 5));
+        console.log('useImportExport: Import errors:', errors.slice(0, 10));
       }
-      
-      console.log('Import hook: Refreshing data after import...');
-      onRefresh();
+
+      return result;
 
     } catch (error: any) {
-      console.error('Import hook: Import failed:', error);
+      console.error('useImportExport: Import failed with error:', error);
+      console.error('useImportExport: Error stack:', error.stack);
+      
+      const errorMessage = error.message || "Failed to import CSV file. Please check the file format and try again.";
+      
       toast({
         title: "Import Error",
-        description: error.message || "Failed to import CSV file. Please check the file format and try again.",
+        description: errorMessage,
         variant: "destructive",
       });
+      
       throw error;
     }
   };
 
   const handleExportAll = async (data: any[]) => {
-    console.log(`Exporting all data for ${tableName}:`, data?.length || 0, 'records');
+    console.log(`useImportExport: Exporting all data for ${tableName}:`, data?.length || 0, 'records');
     const filename = getExportFilename(moduleName, 'all');
     const exporter = new CSVExporter(tableName);
     await exporter.exportToCSV(data, filename);
@@ -107,14 +161,14 @@ export const useImportExport = ({ moduleName, onRefresh, tableName = 'contacts_m
   const handleExportSelected = async (data: any[], selectedIds: string[]) => {
     const selectedData = data.filter(item => selectedIds.includes(item.id));
     const filename = getExportFilename(moduleName, 'selected');
-    console.log(`Exporting selected data:`, selectedData.length, 'records');
+    console.log(`useImportExport: Exporting selected data:`, selectedData.length, 'records');
     const exporter = new CSVExporter(tableName);
     await exporter.exportToCSV(selectedData, filename);
   };
 
   const handleExportFiltered = async (filteredData: any[]) => {
     const filename = getExportFilename(moduleName, 'filtered');
-    console.log(`Exporting filtered data:`, filteredData.length, 'records');
+    console.log(`useImportExport: Exporting filtered data:`, filteredData.length, 'records');
     const exporter = new CSVExporter(tableName);
     await exporter.exportToCSV(filteredData, filename);
   };
