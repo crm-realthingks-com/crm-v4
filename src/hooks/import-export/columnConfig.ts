@@ -11,55 +11,43 @@ export const getColumnConfig = (table: string): ColumnConfig => {
   const configs: Record<string, ColumnConfig> = {
     contacts_module: {
       allowedColumns: [
+        'id',
         'contact_name',
         'company_name',
         'position',
         'email',
         'phone_no',
-        'mobile_no',
         'linkedin',
         'website',
         'contact_source',
-        'lead_status',
         'industry',
-        'no_of_employees',
-        'annual_revenue',
-        'city',
-        'state',
         'country',
         'description'
       ],
       required: ['contact_name'],
       enums: {
         contact_source: ['Website', 'Referral', 'Cold Call', 'Email', 'Social Media', 'Trade Show', 'Other'],
-        lead_status: ['New', 'Contacted', 'Qualified', 'Lost'],
         industry: ['Automotive', 'Technology', 'Healthcare', 'Finance', 'Manufacturing', 'Retail', 'Other']
       }
     },
     contacts: {
       allowedColumns: [
+        'id',
         'contact_name',
         'company_name',
         'position',
         'email',
         'phone_no',
-        'mobile_no',
         'linkedin',
         'website',
         'contact_source',
-        'lead_status',
         'industry',
-        'no_of_employees',
-        'annual_revenue',
-        'city',
-        'state',
         'country',
         'description'
       ],
       required: ['contact_name'],
       enums: {
         contact_source: ['Website', 'Referral', 'Cold Call', 'Email', 'Social Media', 'Trade Show', 'Other'],
-        lead_status: ['New', 'Contacted', 'Qualified', 'Lost'],
         industry: ['Automotive', 'Technology', 'Healthcare', 'Finance', 'Manufacturing', 'Retail', 'Other']
       }
     },

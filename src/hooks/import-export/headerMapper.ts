@@ -1,4 +1,3 @@
-
 import { getColumnConfig } from './columnConfig';
 
 export const createHeaderMapper = (tableName: string) => {
@@ -9,7 +8,74 @@ export const createHeaderMapper = (tableName: string) => {
     
     console.log(`Mapping header: "${trimmedHeader}"`);
     
-    // For deals, create comprehensive field mappings
+    // For contacts, create specific field mappings
+    if (tableName === 'contacts' || tableName === 'contacts_module') {
+      // Direct field matches first (case-insensitive)
+      const directMatch = config.allowedColumns.find(col => 
+        col.toLowerCase() === trimmedHeader.toLowerCase()
+      );
+      if (directMatch) {
+        console.log(`Direct field match found: ${trimmedHeader} -> ${directMatch}`);
+        return directMatch;
+      }
+      
+      // Contact-specific field mappings (case-insensitive)
+      const contactMappings: Record<string, string> = {
+        'id': 'id',
+        'contact id': 'id',
+        'contact_id': 'id',
+        'contact_name': 'contact_name',
+        'contact name': 'contact_name',
+        'name': 'contact_name',
+        'full name': 'contact_name',
+        'company_name': 'company_name',
+        'company name': 'company_name',
+        'company': 'company_name',
+        'organization': 'company_name',
+        'position': 'position',
+        'title': 'position',
+        'job title': 'position',
+        'email': 'email',
+        'email address': 'email',
+        'phone_no': 'phone_no',
+        'phone': 'phone_no',
+        'telephone': 'phone_no',
+        'phone number': 'phone_no',
+        'linkedin': 'linkedin',
+        'linkedin url': 'linkedin',
+        'linkedin profile': 'linkedin',
+        'website': 'website',
+        'website url': 'website',
+        'web': 'website',
+        'contact_source': 'contact_source',
+        'contact source': 'contact_source',
+        'source': 'contact_source',
+        'lead source': 'contact_source',
+        'industry': 'industry',
+        'sector': 'industry',
+        'country': 'country',
+        'nation': 'country',
+        'region': 'country',
+        'description': 'description',
+        'notes': 'description',
+        'comments': 'description',
+        'remarks': 'description'
+      };
+      
+      // Check for mapping (case-insensitive)
+      const lowerHeader = trimmedHeader.toLowerCase();
+      for (const [key, value] of Object.entries(contactMappings)) {
+        if (key.toLowerCase() === lowerHeader) {
+          console.log(`Contact mapping found: ${trimmedHeader} -> ${value}`);
+          return value;
+        }
+      }
+      
+      console.log(`No mapping found for contacts field: ${trimmedHeader}`);
+      return null;
+    }
+    
+    // For deals, keep existing comprehensive mappings
     if (tableName === 'deals') {
       // Direct field matches first (case-insensitive)
       const directMatch = config.allowedColumns.find(col => 

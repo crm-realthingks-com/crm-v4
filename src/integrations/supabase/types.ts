@@ -16,8 +16,6 @@ export type Database = {
     Tables: {
       contacts: {
         Row: {
-          annual_revenue: number | null
-          city: string | null
           company_name: string | null
           contact_name: string
           contact_owner: string | null
@@ -29,20 +27,14 @@ export type Database = {
           email: string | null
           id: string
           industry: string | null
-          lead_status: string | null
           linkedin: string | null
-          mobile_no: string | null
           modified_by: string | null
           modified_time: string | null
-          no_of_employees: number | null
           phone_no: string | null
           position: string | null
-          state: string | null
           website: string | null
         }
         Insert: {
-          annual_revenue?: number | null
-          city?: string | null
           company_name?: string | null
           contact_name: string
           contact_owner?: string | null
@@ -54,20 +46,14 @@ export type Database = {
           email?: string | null
           id?: string
           industry?: string | null
-          lead_status?: string | null
           linkedin?: string | null
-          mobile_no?: string | null
           modified_by?: string | null
           modified_time?: string | null
-          no_of_employees?: number | null
           phone_no?: string | null
           position?: string | null
-          state?: string | null
           website?: string | null
         }
         Update: {
-          annual_revenue?: number | null
-          city?: string | null
           company_name?: string | null
           contact_name?: string
           contact_owner?: string | null
@@ -79,15 +65,11 @@ export type Database = {
           email?: string | null
           id?: string
           industry?: string | null
-          lead_status?: string | null
           linkedin?: string | null
-          mobile_no?: string | null
           modified_by?: string | null
           modified_time?: string | null
-          no_of_employees?: number | null
           phone_no?: string | null
           position?: string | null
-          state?: string | null
           website?: string | null
         }
         Relationships: []
