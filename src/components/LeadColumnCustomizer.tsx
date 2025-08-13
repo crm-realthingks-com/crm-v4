@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -47,9 +48,9 @@ export const LeadColumnCustomizer = ({
       { field: 'phone_no', label: 'Phone', visible: true, order: 4 },
       { field: 'country', label: 'Region', visible: true, order: 5 },
       { field: 'contact_owner', label: 'Lead Owner', visible: true, order: 6 },
-      { field: 'industry', label: 'Industry', visible: false, order: 7 },
-      { field: 'contact_source', label: 'Source', visible: false, order: 8 },
-      { field: 'lead_status', label: 'Status', visible: false, order: 9 },
+      { field: 'lead_status', label: 'Lead Status', visible: true, order: 7 },
+      { field: 'industry', label: 'Industry', visible: false, order: 8 },
+      { field: 'contact_source', label: 'Source', visible: false, order: 9 },
     ];
     setLocalColumns(defaultColumns);
   };

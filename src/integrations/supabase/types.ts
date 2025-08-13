@@ -382,7 +382,6 @@ export type Database = {
       }
       leads: {
         Row: {
-          city: string | null
           company_name: string | null
           contact_owner: string | null
           contact_source: string | null
@@ -396,7 +395,6 @@ export type Database = {
           lead_name: string
           lead_status: string | null
           linkedin: string | null
-          mobile_no: string | null
           modified_by: string | null
           modified_time: string | null
           phone_no: string | null
@@ -404,7 +402,6 @@ export type Database = {
           website: string | null
         }
         Insert: {
-          city?: string | null
           company_name?: string | null
           contact_owner?: string | null
           contact_source?: string | null
@@ -418,7 +415,6 @@ export type Database = {
           lead_name: string
           lead_status?: string | null
           linkedin?: string | null
-          mobile_no?: string | null
           modified_by?: string | null
           modified_time?: string | null
           phone_no?: string | null
@@ -426,7 +422,6 @@ export type Database = {
           website?: string | null
         }
         Update: {
-          city?: string | null
           company_name?: string | null
           contact_owner?: string | null
           contact_source?: string | null
@@ -440,7 +435,6 @@ export type Database = {
           lead_name?: string
           lead_status?: string | null
           linkedin?: string | null
-          mobile_no?: string | null
           modified_by?: string | null
           modified_time?: string | null
           phone_no?: string | null
