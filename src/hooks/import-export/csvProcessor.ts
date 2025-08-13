@@ -29,37 +29,65 @@ export class CSVProcessor {
   }
 
   async processCSV(text: string, options: ProcessOptions) {
-    const { headers, rows: dataRows } = CSVParser.parseCSV(text);
-    
-    console.log('Parsed CSV - Headers:', headers);
-    console.log('Parsed CSV - Data rows:', dataRows.length);
+    console.log('Starting CSV processing for table:', options.tableName);
+    console.log('CSV content length:', text.length);
+    console.log('User ID:', options.userId);
 
-    // Validate headers
-    await this.validateHeaders(headers, options.tableName);
+    try {
+      const { headers, rows: dataRows } = CSVParser.parseCSV(text);
+      
+      console.log('Parsed CSV - Headers:', headers);
+      console.log('Parsed CSV - Data rows:', dataRows.length);
 
-    const mappedHeaders = headers.map(header => ({
-      original: header,
-      mapped: this.mapHeader(header)
-    }));
+      if (headers.length === 0) {
+        throw new Error('No headers found in CSV file');
+      }
 
-    const validHeaders = mappedHeaders.filter(h => h.mapped !== null);
-    const invalidHeaders = mappedHeaders.filter(h => h.mapped === null);
-    
-    if (validHeaders.length === 0) {
-      throw new Error('No valid headers found. Please ensure CSV headers match the expected field names.');
+      if (dataRows.length === 0) {
+        throw new Error('No data rows found in CSV file');
+      }
+
+      // Validate headers
+      await this.validateHeaders(headers, options.tableName);
+
+      const mappedHeaders = headers.map(header => ({
+        original: header,
+        mapped: this.mapHeader(header)
+      }));
+
+      console.log('Mapped headers:', mappedHeaders);
+
+      const validHeaders = mappedHeaders.filter(h => h.mapped !== null);
+      const invalidHeaders = mappedHeaders.filter(h => h.mapped === null);
+      
+      console.log('Valid headers:', validHeaders);
+      console.log('Invalid headers:', invalidHeaders);
+      
+      if (validHeaders.length === 0) {
+        throw new Error('No valid headers found. Please ensure CSV headers match the expected field names.');
+      }
+      
+      this.handleInvalidHeaders(invalidHeaders);
+
+      return await this.processRows(dataRows, mappedHeaders, options);
+    } catch (error) {
+      console.error('CSV processing error:', error);
+      throw error;
     }
-    
-    this.handleInvalidHeaders(invalidHeaders);
-
-    return this.processRows(dataRows, mappedHeaders, options);
   }
 
   private async validateHeaders(headers: string[], tableName: string) {
+    console.log('Validating headers for table:', tableName);
+    
     if (tableName === 'contacts' || tableName === 'contacts_module') {
       const hasRequiredHeaders = headers.some(h => {
         const mapped = this.mapHeader(h);
+        console.log(`Header "${h}" maps to "${mapped}"`);
         return mapped === 'contact_name';
       });
+      
+      console.log('Has required contact_name header:', hasRequiredHeaders);
+      
       if (!hasRequiredHeaders) {
         throw new Error('Missing required header: contact_name is required for contacts import. Please check your CSV headers.');
       }
@@ -88,6 +116,8 @@ export class CSVProcessor {
   }
 
   private async processRows(dataRows: string[][], mappedHeaders: any[], options: ProcessOptions) {
+    console.log('Processing rows:', dataRows.length);
+    
     let successCount = 0;
     let errorCount = 0;
     let duplicateCount = 0;
@@ -96,14 +126,21 @@ export class CSVProcessor {
 
     for (let i = 0; i < dataRows.length; i++) {
       try {
+        console.log(`Processing row ${i + 1}:`, dataRows[i]);
+        
         const record = this.mapRowToRecord(dataRows[i], mappedHeaders, i);
         
-        if (!record) {
+        if (!record || Object.keys(record).length === 0) {
+          console.log(`Row ${i + 1}: Skipping empty record`);
           errorCount++;
           continue;
         }
 
+        console.log(`Row ${i + 1}: Mapped record:`, record);
+
         const result = await this.processRecord(record, i, options);
+        
+        console.log(`Row ${i + 1}: Processing result:`, result);
         
         switch (result.type) {
           case 'success':
@@ -126,8 +163,8 @@ export class CSVProcessor {
         }
 
         // Small delay to prevent overwhelming the database
-        if (i % 10 === 0 && i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+        if (i % 5 === 0 && i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
 
       } catch (rowError: any) {
@@ -137,11 +174,15 @@ export class CSVProcessor {
       }
     }
 
-    return { successCount, updateCount, duplicateCount, errorCount, errors };
+    const result = { successCount, updateCount, duplicateCount, errorCount, errors };
+    console.log('Final processing result:', result);
+    
+    return result;
   }
 
   private mapRowToRecord(row: string[], mappedHeaders: any[], rowIndex: number) {
     const record: any = {};
+    let hasValidData = false;
     
     mappedHeaders.forEach((headerMap, index) => {
       if (headerMap.mapped && index < row.length) {
@@ -150,13 +191,16 @@ export class CSVProcessor {
           const validatedValue = this.validateAndConvertValue(headerMap.mapped, String(rawValue).trim());
           if (validatedValue !== null && validatedValue !== undefined) {
             record[headerMap.mapped] = validatedValue;
+            hasValidData = true;
           }
         }
       }
     });
     
     console.log(`Row ${rowIndex + 1} processed record:`, record);
-    return record;
+    console.log(`Row ${rowIndex + 1} has valid data:`, hasValidData);
+    
+    return hasValidData ? record : null;
   }
 
   private async processRecord(record: any, rowIndex: number, options: ProcessOptions) {
@@ -213,27 +257,13 @@ export class CSVProcessor {
   }
 
   private validateOtherRecord(record: any, rowIndex: number, options: ProcessOptions) {
-    const missingRequired = this.config.required.filter((field: string) => !record[field] || String(record[field]).trim() === '');
+    console.log(`Row ${rowIndex + 1}: Validating record:`, record);
     
-    if (missingRequired.length > 0) {
-      // Set defaults for some missing fields
-      missingRequired.forEach((field: string) => {
-        if (field === 'contact_name') {
-          record[field] = `Contact ${rowIndex + 1}`;
-        } else if (field === 'lead_name') {
-          record[field] = `Lead ${rowIndex + 1}`;
-        } else if (field === 'title') {
-          record[field] = `Meeting ${rowIndex + 1}`;
-        }
-      });
-      
-      // Check again after setting defaults
-      const stillMissing = this.config.required.filter((field: string) => !record[field] || String(record[field]).trim() === '');
-      if (stillMissing.length > 0) {
-        return {
-          type: 'error' as const,
-          error: `Row ${rowIndex + 1}: Missing required fields: ${stillMissing.join(', ')}`
-        };
+    // For contacts, ensure we have at least contact_name
+    if (options.tableName === 'contacts' || options.tableName === 'contacts_module') {
+      if (!record.contact_name || String(record.contact_name).trim() === '') {
+        record.contact_name = `Contact ${rowIndex + 1}`;
+        console.log(`Row ${rowIndex + 1}: Set default contact_name: ${record.contact_name}`);
       }
     }
 
@@ -244,66 +274,16 @@ export class CSVProcessor {
     // Set contact_owner to the current user if not provided
     if ((options.tableName === 'contacts' || options.tableName === 'contacts_module') && !record.contact_owner) {
       record.contact_owner = options.userId;
+      console.log(`Row ${rowIndex + 1}: Set contact_owner to current user: ${options.userId}`);
     }
 
+    console.log(`Row ${rowIndex + 1}: Final validated record:`, record);
     return { type: 'valid' as const, record };
   }
 
   private async handleDuplicate(record: any, rowIndex: number, options: ProcessOptions) {
-    console.log(`Found duplicate record ${rowIndex + 1}: ${record.deal_name || record.contact_name || 'Unknown'}, attempting update...`);
-    
-    if (options.tableName === 'deals') {
-      return await this.updateDuplicateDeal(record, rowIndex, options);
-    } else {
-      console.log(`Row ${rowIndex + 1}: Skipping duplicate record: ${record.contact_name || record.lead_name || 'Unknown'}`);
-      return { type: 'duplicate' as const };
-    }
-  }
-
-  private async updateDuplicateDeal(record: any, rowIndex: number, options: ProcessOptions) {
-    try {
-      let updateData = { ...record };
-      delete updateData.id;
-      updateData.modified_by = options.userId;
-      updateData.modified_at = new Date().toISOString();
-
-      console.log(`Row ${rowIndex + 1}: Update data prepared:`, updateData);
-
-      let updateResult;
-      if (record.id && record.id.trim() !== '') {
-        updateResult = await supabase
-          .from('deals')
-          .update(updateData)
-          .eq('id', record.id.trim())
-          .select('id, deal_name');
-      } else {
-        updateResult = await supabase
-          .from('deals')
-          .update(updateData)
-          .eq('deal_name', record.deal_name)
-          .select('id, deal_name');
-      }
-
-      if (updateResult.error) {
-        console.error(`Row ${rowIndex + 1}: Error updating record:`, updateResult.error);
-        return {
-          type: 'error' as const,
-          error: `Row ${rowIndex + 1}: Update failed for "${record.deal_name}" - ${updateResult.error.message}`
-        };
-      } else if (updateResult.data && updateResult.data.length > 0) {
-        console.log(`Row ${rowIndex + 1}: Successfully updated existing record:`, updateResult.data[0]);
-        return { type: 'update' as const };
-      } else {
-        console.log(`Row ${rowIndex + 1}: No records updated, treating as duplicate skip`);
-        return { type: 'duplicate' as const };
-      }
-    } catch (updateError: any) {
-      console.error(`Row ${rowIndex + 1}: Error updating duplicate record:`, updateError);
-      return {
-        type: 'error' as const,
-        error: `Row ${rowIndex + 1}: Update error for "${record.deal_name}" - ${updateError.message}`
-      };
-    }
+    console.log(`Found duplicate record ${rowIndex + 1}: ${record.deal_name || record.contact_name || 'Unknown'}, skipping...`);
+    return { type: 'duplicate' as const };
   }
 
   private async insertRecord(record: any, rowIndex: number, options: ProcessOptions) {
@@ -316,6 +296,8 @@ export class CSVProcessor {
       console.log(`Row ${rowIndex + 1}: Inserting new record:`, record);
       
       const insertResult = await this.performInsert(record, options.tableName);
+
+      console.log(`Row ${rowIndex + 1}: Insert result:`, insertResult);
 
       if (insertResult.error) {
         console.error(`Row ${rowIndex + 1}: Error inserting record:`, insertResult.error);
@@ -333,6 +315,7 @@ export class CSVProcessor {
         error: `Row ${rowIndex + 1}: Unknown insert error`
       };
     } catch (error: any) {
+      console.error(`Row ${rowIndex + 1}: Insert exception:`, error);
       return {
         type: 'error' as const,
         error: `Row ${rowIndex + 1}: Insert error - ${error.message}`
@@ -341,6 +324,8 @@ export class CSVProcessor {
   }
 
   private async performInsert(record: any, tableName: string) {
+    console.log('Performing insert for table:', tableName, 'with record:', record);
+    
     switch (tableName) {
       case 'deals':
         return await supabase

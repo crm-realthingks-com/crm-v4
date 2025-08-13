@@ -17,7 +17,7 @@ const Contacts = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isImporting, setIsImporting] = useState(false);
 
-  console.log('Contacts page: Rendering');
+  console.log('Contacts page: Rendering with refreshTrigger:', refreshTrigger);
 
   // Use the import/export hook
   const { handleImport, handleExportAll } = useImportExport({
@@ -25,46 +25,68 @@ const Contacts = () => {
     tableName: 'contacts',
     onRefresh: () => {
       console.log('Contacts page: Import hook triggering refresh...');
-      setRefreshTrigger(prev => prev + 1);
+      setRefreshTrigger(prev => {
+        const newTrigger = prev + 1;
+        console.log('Contacts page: Refresh trigger updated from', prev, 'to', newTrigger);
+        return newTrigger;
+      });
     }
   });
 
   const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    console.log('Contacts page: File selected:', file);
+    
+    if (!file) {
+      console.log('Contacts page: No file selected');
+      return;
+    }
 
-    console.log('Contacts page: Starting CSV import with file:', file.name);
+    console.log('Contacts page: Starting CSV import with file:', {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      lastModified: file.lastModified
+    });
     
     setIsImporting(true);
     
     try {
+      console.log('Contacts page: Showing import started toast');
       toast({
         title: "Import Started",
         description: `Processing ${file.name}...`,
       });
 
+      console.log('Contacts page: Calling handleImport');
       await handleImport(file);
       
+      console.log('Contacts page: Import completed successfully');
       toast({
         title: "Import Completed",
         description: "Contacts have been imported successfully.",
       });
 
+      // Reset the file input
       event.target.value = '';
+      console.log('Contacts page: File input reset');
+      
     } catch (error: any) {
-      console.error('Import error:', error);
+      console.error('Contacts page: Import error:', error);
       toast({
         title: "Import Error",
         description: error.message || "Failed to import contacts. Please check your CSV format.",
         variant: "destructive",
       });
     } finally {
+      console.log('Contacts page: Setting isImporting to false');
       setIsImporting(false);
     }
   };
 
   const handleExportContacts = async () => {
     try {
+      console.log('Contacts page: Starting export');
       toast({
         title: "Export Started",
         description: "Preparing contacts export...",
@@ -74,6 +96,8 @@ const Contacts = () => {
         .from('contacts')
         .select('*')
         .order('created_time', { ascending: false });
+
+      console.log('Contacts page: Export query result:', { count: contacts?.length, error });
 
       if (error) {
         console.error('Database fetch error:', error);
