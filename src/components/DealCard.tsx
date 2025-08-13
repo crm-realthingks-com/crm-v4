@@ -1,9 +1,10 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Deal, STAGE_COLORS } from "@/types/deal";
 import { format } from "date-fns";
-import { Trash2 } from "lucide-react";
+import { Trash2, XCircle } from "lucide-react";
 
 interface DealCardProps {
   deal: Deal;
@@ -12,12 +13,28 @@ interface DealCardProps {
   isSelected?: boolean;
   selectionMode?: boolean;
   onDelete?: (dealId: string) => void;
+  onStageChange?: (dealId: string, newStage: any) => void;
 }
 
-export const DealCard = ({ deal, onClick, isDragging, isSelected, selectionMode, onDelete }: DealCardProps) => {
+export const DealCard = ({ 
+  deal, 
+  onClick, 
+  isDragging, 
+  isSelected, 
+  selectionMode, 
+  onDelete, 
+  onStageChange 
+}: DealCardProps) => {
   const formatCurrency = (amount: number, currency: string = 'EUR') => {
     const symbols = { USD: '$', EUR: '€', INR: '₹' };
     return `${symbols[currency as keyof typeof symbols] || '€'}${amount.toLocaleString()}`;
+  };
+
+  const handleMoveToDropped = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onStageChange) {
+      onStageChange(deal.id, 'Dropped');
+    }
   };
 
   return (
@@ -36,6 +53,17 @@ export const DealCard = ({ deal, onClick, isDragging, isSelected, selectionMode,
             {deal.project_name || 'Untitled Deal'}
           </CardTitle>
           <div className="flex items-center gap-2">
+            {!selectionMode && deal.stage === 'Offered' && onStageChange && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleMoveToDropped}
+                className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 h-6 w-6 bg-orange-100 hover:bg-orange-200 text-orange-600"
+                title="Move to Dropped"
+              >
+                <XCircle className="w-3 h-3" />
+              </Button>
+            )}
             {!selectionMode && onDelete && (
               <Button
                 size="sm"

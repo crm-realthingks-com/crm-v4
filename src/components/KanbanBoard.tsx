@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Deal, DealStage, DEAL_STAGES, STAGE_COLORS, getRequiredFieldsForStage, getStageIndex, getNextStage } from "@/types/deal";
@@ -69,6 +70,18 @@ export const KanbanBoard = ({
   const getDealsByStage = (stage: DealStage) => {
     const filteredDeals = filterDeals(deals);
     return filteredDeals.filter(deal => deal.stage === stage);
+  };
+
+  // Get visible stages - show Lost and Dropped only if they have deals
+  const getVisibleStages = () => {
+    const lostDeals = getDealsByStage('Lost');
+    const droppedDeals = getDealsByStage('Dropped');
+    
+    return DEAL_STAGES.filter(stage => {
+      if (stage === 'Lost') return lostDeals.length > 0;
+      if (stage === 'Dropped') return droppedDeals.length > 0;
+      return true;
+    });
   };
 
   const onDragStart = (start: any) => {
@@ -219,6 +232,26 @@ export const KanbanBoard = ({
     }
   };
 
+  // Enhanced handleDealCardAction to properly update deal stage
+  const handleDealCardAction = async (dealId: string, newStage: DealStage) => {
+    try {
+      await onUpdateDeal(dealId, { stage: newStage });
+      toast({
+        title: "Deal Updated",
+        description: `Deal moved to ${newStage} stage`,
+      });
+    } catch (error) {
+      console.error("Error updating deal stage:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update deal stage",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const visibleStages = getVisibleStages();
+
   return (
     <div className="w-full h-full flex flex-col">
       {/* Fixed Search and Selection Controls */}
@@ -260,7 +293,7 @@ export const KanbanBoard = ({
       <div className="flex-1 p-4 overflow-hidden">
         <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
           <div className="flex items-start gap-3 h-full w-full" style={{ flexWrap: 'nowrap' }}>
-            {DEAL_STAGES.map((stage) => {
+            {visibleStages.map((stage) => {
               const stageDeals = getDealsByStage(stage);
               const selectedInStage = stageDeals.filter(deal => selectedDeals.has(deal.id)).length;
               const allSelected = selectedInStage === stageDeals.length && stageDeals.length > 0;
@@ -353,6 +386,7 @@ export const KanbanBoard = ({
                                       description: `Successfully deleted ${deal.project_name || 'deal'}`,
                                     });
                                   }}
+                                  onStageChange={handleDealCardAction}
                                 />
                               </div>
                             )}
