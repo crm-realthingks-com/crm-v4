@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,13 @@ export const ConvertToDealModal = ({ open, onOpenChange, lead, onSuccess }: Conv
     try {
       console.log("Converting lead to deal with data:", dealData);
       
+      // Get current user for created_by field
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error("User not authenticated");
+      }
+
       // Ensure required fields are present and remove any undefined/null values that could cause UUID errors
       const dealToInsert = {
         deal_name: dealData.deal_name || `Deal for ${lead.lead_name}`,
@@ -46,6 +54,7 @@ export const ConvertToDealModal = ({ open, onOpenChange, lead, onSuccess }: Conv
         lead_owner: dealData.lead_owner || (lead.created_by ? displayNames[lead.created_by] || 'Unknown User' : ''),
         region: dealData.region || lead.country || '',
         priority: dealData.priority || 3,
+        created_by: user.id, // Ensure created_by is set for RLS
         // Only include fields that have actual values to avoid UUID parsing errors
         ...(dealData.currency_type && { currency_type: dealData.currency_type }),
         ...(dealData.quarterly_revenue_q1 !== undefined && { quarterly_revenue_q1: dealData.quarterly_revenue_q1 }),
@@ -68,7 +77,7 @@ export const ConvertToDealModal = ({ open, onOpenChange, lead, onSuccess }: Conv
 
       if (leadUpdateError) {
         console.error("Error updating lead status:", leadUpdateError);
-        // Don't throw here as the deal was created successfully
+        throw leadUpdateError; // Throw the error so user knows about it
       }
 
       toast({
@@ -82,7 +91,7 @@ export const ConvertToDealModal = ({ open, onOpenChange, lead, onSuccess }: Conv
       console.error("Error converting lead to deal:", error);
       toast({
         title: "Error",
-        description: "Failed to convert lead to deal",
+        description: error instanceof Error ? error.message : "Failed to convert lead to deal",
         variant: "destructive",
       });
       throw error;
