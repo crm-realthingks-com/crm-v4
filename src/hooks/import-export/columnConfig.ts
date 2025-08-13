@@ -93,6 +93,32 @@ export const getColumnConfig = (table: string): ColumnConfig => {
         industry: ['Automotive', 'Technology', 'Healthcare', 'Finance', 'Manufacturing', 'Retail', 'Other']
       }
     },
+    meetings: {
+      allowedColumns: [
+        'title',
+        'start_time',
+        'end_time',
+        'location',
+        'agenda',
+        'outcome',
+        'next_action',
+        'status',
+        'priority',
+        'participants',
+        'teams_link',
+        'lead_id',
+        'contact_id',
+        'deal_id',
+        'tags',
+        'follow_up_required',
+        'host'
+      ],
+      required: ['title', 'start_time', 'end_time'],
+      enums: {
+        status: ['scheduled', 'in_progress', 'completed', 'cancelled'],
+        priority: ['Low', 'Medium', 'High', 'Critical']
+      }
+    },
     deals: {
       allowedColumns: [
         'deal_name',
