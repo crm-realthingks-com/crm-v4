@@ -17,6 +17,22 @@ interface Contact {
   modified_time?: string;
 }
 
+interface CreateContactData {
+  contact_name: string; // Make this required for creation
+  company_name?: string;
+  email?: string;
+  phone_no?: string;
+  position?: string;
+  linkedin?: string;
+  website?: string;
+  contact_source?: string;
+  industry?: string;
+  city?: string;
+  country?: string;
+  description?: string;
+  contact_owner?: string;
+}
+
 export const useSecureContacts = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +61,7 @@ export const useSecureContacts = () => {
     }
   };
 
-  const createContact = async (contactData: Partial<Contact>) => {
+  const createContact = async (contactData: CreateContactData) => {
     try {
       const query = supabase
         .from('contacts')
