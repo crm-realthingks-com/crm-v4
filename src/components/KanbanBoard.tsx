@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Deal, DealStage, DEAL_STAGES, STAGE_COLORS, getRequiredFieldsForStage, getStageIndex, getNextStage } from "@/types/deal";
@@ -72,7 +71,6 @@ export const KanbanBoard = ({
     return filteredDeals.filter(deal => deal.stage === stage);
   };
 
-  // Get visible stages - show Lost and Dropped only if they have deals
   const getVisibleStages = () => {
     const lostDeals = getDealsByStage('Lost');
     const droppedDeals = getDealsByStage('Dropped');
@@ -232,7 +230,6 @@ export const KanbanBoard = ({
     }
   };
 
-  // Enhanced handleDealCardAction to properly update deal stage
   const handleDealCardAction = async (dealId: string, newStage: DealStage) => {
     try {
       await onUpdateDeal(dealId, { stage: newStage });
@@ -253,9 +250,8 @@ export const KanbanBoard = ({
   const visibleStages = getVisibleStages();
 
   return (
-    <div className="w-full h-full flex flex-col">
-      {/* Fixed Search and Selection Controls */}
-      <div className="w-full px-4 py-4 bg-background border-b">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex-shrink-0 px-6 py-4 bg-background border-b border-border">
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-1 min-w-0">
             <div className="relative flex-1 min-w-[200px] max-w-md">
@@ -264,7 +260,7 @@ export const KanbanBoard = ({
                 placeholder="Search all deal details..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 transition-all hover:border-primary/50 focus:border-primary w-full"
+                className="pl-10 transition-all hover:border-primary/50 focus:border-primary w-full text-base"
               />
             </div>
             
@@ -273,34 +269,32 @@ export const KanbanBoard = ({
                 variant={selectionMode ? "default" : "outline"}
                 size="sm"
                 onClick={toggleSelectionMode}
-                className="hover-scale transition-all whitespace-nowrap"
+                className="hover-scale transition-all whitespace-nowrap text-base"
               >
                 {selectionMode ? "Exit Selection" : "Select Deals"}
               </Button>
               
               {selectionMode && selectedDeals.size > 0 && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
-                  <span className="font-medium">{selectedDeals.size} selected</span>
+                  <span className="font-medium text-base">{selectedDeals.size} selected</span>
                 </div>
               )}
             </div>
           </div>
-
         </div>
       </div>
 
-      {/* Kanban Pipeline - Single Row Flex Layout */}
-      <div className="flex-1 p-4 overflow-hidden">
+      <div className="flex-1 min-h-0 px-6 py-4">
         <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <div className="flex items-start gap-3 h-full w-full" style={{ flexWrap: 'nowrap' }}>
+          <div className="grid gap-4 h-full auto-cols-fr" style={{ gridTemplateColumns: `repeat(${visibleStages.length}, 1fr)` }}>
             {visibleStages.map((stage) => {
               const stageDeals = getDealsByStage(stage);
               const selectedInStage = stageDeals.filter(deal => selectedDeals.has(deal.id)).length;
               const allSelected = selectedInStage === stageDeals.length && stageDeals.length > 0;
               
               return (
-                <div key={stage} className="flex flex-col animate-fade-in flex-1 min-w-0 h-full">
-                  <div className={`p-2 rounded-lg border-2 ${STAGE_COLORS[stage]} mb-3 transition-all hover:shadow-md flex-shrink-0`}>
+                <div key={stage} className="flex flex-col animate-fade-in h-full min-w-0">
+                  <div className={`p-3 rounded-lg border-2 ${STAGE_COLORS[stage]} mb-4 transition-all hover:shadow-md flex-shrink-0`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         {selectionMode && (
@@ -310,10 +304,10 @@ export const KanbanBoard = ({
                             className="transition-colors flex-shrink-0"
                           />
                         )}
-                        <h3 className="font-semibold text-sm truncate">{stage}</h3>
+                        <h3 className="font-semibold text-base truncate">{stage}</h3>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs font-medium whitespace-nowrap">
+                        <span className="text-sm font-medium whitespace-nowrap">
                           {stageDeals.length}
                           {selectionMode && selectedInStage > 0 && (
                             <span className="text-primary ml-1">({selectedInStage})</span>
@@ -324,9 +318,9 @@ export const KanbanBoard = ({
                             size="sm"
                             variant="ghost"
                             onClick={() => onCreateDeal(stage)}
-                            className="hover-scale flex-shrink-0 p-1 h-6 w-6"
+                            className="hover-scale flex-shrink-0 p-1 h-7 w-7"
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-4 h-4" />
                           </Button>
                         )}
                       </div>
@@ -338,11 +332,30 @@ export const KanbanBoard = ({
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`flex-1 space-y-2 p-2 rounded-lg transition-all overflow-y-auto ${
+                        className={`flex-1 space-y-3 p-2 rounded-lg transition-all min-h-0 ${
                           snapshot.isDraggingOver ? 'bg-muted/50 shadow-inner' : ''
                         }`}
-                        style={{ minHeight: '200px' }}
+                        style={{ 
+                          overflowY: 'auto',
+                          scrollbarWidth: 'thin',
+                          scrollbarColor: 'hsl(var(--border)) transparent'
+                        }}
                       >
+                        <style jsx>{`
+                          div::-webkit-scrollbar {
+                            width: 4px;
+                          }
+                          div::-webkit-scrollbar-track {
+                            background: transparent;
+                          }
+                          div::-webkit-scrollbar-thumb {
+                            background: hsl(var(--border));
+                            border-radius: 2px;
+                          }
+                          div::-webkit-scrollbar-thumb:hover {
+                            background: hsl(var(--muted-foreground));
+                          }
+                        `}</style>
                         {stageDeals.map((deal, index) => (
                           <Draggable 
                             key={deal.id} 
@@ -403,8 +416,7 @@ export const KanbanBoard = ({
         </DragDropContext>
       </div>
 
-      {/* Fixed Bulk Actions Bar */}
-      <div>
+      <div className="flex-shrink-0">
         <BulkActionsBar
           selectedCount={selectedDeals.size}
           onDelete={handleBulkDelete}

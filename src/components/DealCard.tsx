@@ -39,17 +39,17 @@ export const DealCard = ({
 
   return (
     <Card
-      className={`deal-card cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:-translate-y-1 hover:border-primary/30 ${
+      className={`deal-card cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:-translate-y-1 hover:border-primary/30 ${
         isDragging ? 'opacity-50' : ''
       } ${isSelected ? 'ring-2 ring-primary bg-primary/10 border-primary' : ''} ${
         selectionMode ? 'pl-8' : ''
-      } animate-fade-in border-border/50 hover:bg-gradient-to-br hover:from-card hover:to-primary/5 button-scale`}
+      } animate-fade-in border-border/50 hover:bg-gradient-to-br hover:from-card hover:to-primary/5 button-scale min-h-[200px]`}
       onClick={onClick}
       style={{ boxShadow: 'var(--shadow-sm)' }}
     >
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between mb-2">
-          <CardTitle className="text-sm font-bold truncate text-foreground group-hover:text-primary transition-colors">
+          <CardTitle className="text-base font-bold truncate text-foreground group-hover:text-primary transition-colors">
             {deal.project_name || 'Untitled Deal'}
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -58,10 +58,10 @@ export const DealCard = ({
                 size="sm"
                 variant="ghost"
                 onClick={handleMoveToDropped}
-                className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 h-6 w-6 bg-orange-100 hover:bg-orange-200 text-orange-600"
+                className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 h-7 w-7 bg-orange-100 hover:bg-orange-200 text-orange-600"
                 title="Move to Dropped"
               >
-                <XCircle className="w-3 h-3" />
+                <XCircle className="w-4 h-4" />
               </Button>
             )}
             {!selectionMode && onDelete && (
@@ -72,16 +72,16 @@ export const DealCard = ({
                   e.stopPropagation();
                   onDelete(deal.id);
                 }}
-                className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 h-6 w-6 bg-destructive/10 hover:bg-destructive/20 text-destructive"
+                className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 h-7 w-7 bg-destructive/10 hover:bg-destructive/20 text-destructive"
               >
-                <Trash2 className="w-3 h-3" />
+                <Trash2 className="w-4 h-4" />
               </Button>
             )}
           </div>
         </div>
       </CardHeader>
       
-      <CardContent className="pt-0 space-y-3">
+      <CardContent className="pt-0 space-y-3 text-sm">
         {/* Customer Name */}
         {deal.customer_name && (
           <div className="flex items-center">
