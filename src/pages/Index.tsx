@@ -1,18 +1,14 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Deal, DealStage } from "@/types/deal";
-import { KanbanBoard } from "@/components/KanbanBoard";
-import { ListView } from "@/components/ListView";
 import { DealForm } from "@/components/DealForm";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ImportExportBar } from "@/components/ImportExportBar";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { DashboardStats } from "@/components/dashboard/DashboardStats";
+import { DashboardContent } from "@/components/dashboard/DashboardContent";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Plus, BarChart3, Users, Euro } from "lucide-react";
 
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -154,7 +150,6 @@ const Index = () => {
     try {
       let createdCount = 0;
       let updatedCount = 0;
-      const processedDeals: Deal[] = [];
 
       for (const importDeal of importedDeals) {
         const { shouldUpdate, ...dealData } = importDeal;
@@ -177,7 +172,6 @@ const Index = () => {
             .single();
 
           if (error) throw error;
-          processedDeals.push(data as Deal);
           updatedCount++;
         } else {
           const newDealData = {
@@ -195,7 +189,6 @@ const Index = () => {
             .single();
 
           if (error) throw error;
-          processedDeals.push(data as Deal);
           createdCount++;
         }
       }
@@ -240,14 +233,6 @@ const Index = () => {
     navigate("/auth");
   };
 
-  const getStats = () => {
-    const totalDeals = deals.length;
-    const totalValue = deals.reduce((sum, deal) => sum + (deal.total_contract_value || 0), 0);
-    const wonDeals = deals.filter(deal => deal.stage === 'Won').length;
-    
-    return { totalDeals, totalValue, wonDeals };
-  };
-
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -263,134 +248,29 @@ const Index = () => {
     return null;
   }
 
-  const stats = getStats();
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Header - REMOVED DUPLICATE IMPORT/EXPORT BUTTONS */}
-      <header className="sticky top-0 z-50 border-b bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg">
-        <div className="w-full px-6 py-4">
-          <div className="flex items-center justify-between w-full max-w-none">
-            {/* Left side - App title */}
-            <div className="flex-shrink-0">
-              <h1 className="text-2xl lg:text-3xl font-bold">RealThingks Deals</h1>
-            </div>
-            
-            {/* Right side - Controls without duplicate import/export */}
-            <div className="flex items-center gap-2 lg:gap-4 flex-shrink-0">
-              {/* View Toggle */}
-              <div className="bg-white/10 rounded-lg p-1 flex">
-                <Button
-                  variant={activeView === 'kanban' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setActiveView('kanban')}
-                  className={activeView === 'kanban' ? 'bg-white text-primary font-medium px-3' : 'text-white hover:bg-white/20 px-3'}
-                >
-                  Kanban
-                </Button>
-                <Button
-                  variant={activeView === 'list' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setActiveView('list')}
-                  className={activeView === 'list' ? 'bg-white text-primary font-medium px-3' : 'text-white hover:bg-white/20 px-3'}
-                >
-                  List
-                </Button>
-              </div>
-              
-              <Button 
-                onClick={() => handleCreateDeal('Lead')}
-                className="bg-white text-primary hover:bg-white/90 font-semibold transition-all hover:scale-105 whitespace-nowrap"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Deal
-              </Button>
-              
-              {/* User Info with Sign Out */}
-              <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2">
-                <div className="text-right">
-                  <p className="text-primary-foreground/90 text-sm font-medium">
-                    {user.email}
-                  </p>
-                </div>
-                <Button 
-                  onClick={handleSignOut}
-                  size="sm"
-                  className="bg-destructive/90 text-destructive-foreground hover:bg-destructive border-0 font-medium transition-all hover:scale-105"
-                >
-                  <LogOut className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader
+        userEmail={user.email || ''}
+        activeView={activeView}
+        onViewChange={setActiveView}
+        onCreateDeal={() => handleCreateDeal('Lead')}
+        onSignOut={handleSignOut}
+      />
 
-      {/* Stats */}
-      <div className="w-full px-6 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <Card className="animate-fade-in hover-scale">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Deals</CardTitle>
-              <BarChart3 className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalDeals}</div>
-            </CardContent>
-          </Card>
-          
-          <Card className="animate-fade-in hover-scale">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-              <Euro className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                €{stats.totalValue.toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="animate-fade-in hover-scale">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Won Deals</CardTitle>
-              <Users className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.wonDeals}</div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <DashboardStats deals={deals} />
 
-      {/* Main Content - Full Width */}
-      <div className="flex-1">
-        {activeView === 'kanban' ? (
-          <div className="w-full">
-            <KanbanBoard
-              deals={deals}
-              onUpdateDeal={handleUpdateDeal}
-              onDealClick={handleDealClick}
-              onCreateDeal={handleCreateDeal}
-              onDeleteDeals={handleDeleteDeals}
-              onImportDeals={handleImportDeals}
-              onRefresh={fetchDeals}
-            />
-          </div>
-        ) : (
-          <div className="w-full">
-            <ListView
-              deals={deals}
-              onDealClick={handleDealClick}
-              onUpdateDeal={handleUpdateDeal}
-              onDeleteDeals={handleDeleteDeals}
-              onImportDeals={handleImportDeals}
-            />
-          </div>
-        )}
-      </div>
+      <DashboardContent
+        activeView={activeView}
+        deals={deals}
+        onUpdateDeal={handleUpdateDeal}
+        onDealClick={handleDealClick}
+        onCreateDeal={handleCreateDeal}
+        onDeleteDeals={handleDeleteDeals}
+        onImportDeals={handleImportDeals}
+        onRefresh={fetchDeals}
+      />
 
-      {/* Deal Form Modal */}
       <DealForm
         deal={selectedDeal}
         isOpen={isFormOpen}
