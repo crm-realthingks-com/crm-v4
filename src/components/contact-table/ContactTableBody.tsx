@@ -47,8 +47,13 @@ export const ContactTableBody = ({
   onRefresh
 }: ContactTableBodyProps) => {
   const { toast } = useToast();
+  
+  // Get all unique user IDs that we need to fetch display names for
+  const contactOwnerIds = [...new Set(pageContacts.map(c => c.contact_owner).filter(Boolean))];
   const createdByIds = [...new Set(pageContacts.map(c => c.created_by).filter(Boolean))];
-  const { displayNames } = useUserDisplayNames(createdByIds);
+  const allUserIds = [...new Set([...contactOwnerIds, ...createdByIds])];
+  
+  const { displayNames } = useUserDisplayNames(allUserIds);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -193,9 +198,16 @@ export const ContactTableBody = ({
                     {contact[column.field as keyof Contact]}
                   </button>
                 ) : column.field === 'contact_owner' ? (
-                  // Always show the display name or fallback without any loading state
+                  // Show the display name for contact_owner
+                  contact.contact_owner ? (
+                    displayNames[contact.contact_owner] || "Loading..."
+                  ) : (
+                    '-'
+                  )
+                ) : column.field === 'created_by' ? (
+                  // Show the display name for created_by
                   contact.created_by ? (
-                    displayNames[contact.created_by] || "Unknown"
+                    displayNames[contact.created_by] || "Loading..."
                   ) : (
                     '-'
                   )

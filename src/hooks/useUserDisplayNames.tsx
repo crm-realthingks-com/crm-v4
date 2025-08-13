@@ -81,23 +81,21 @@ export const useUserDisplayNames = (userIds: string[]) => {
         const missingIds = uncachedIds.filter(id => !userDisplayNames[id]);
         
         if (missingIds.length > 0) {
+          console.log('Fetching missing user display names via edge function for:', missingIds);
+          
           // Create the fetch promise for edge function
           const fetchPromise = supabase.functions.invoke('admin-list-users')
             .then(({ data, error }) => {
               if (error) {
-                console.warn('Edge function error, using fallback:', error);
-                // Set fallback names for missing users
-                missingIds.forEach(id => {
-                  userDisplayNames[id] = "User";
-                  displayNameCache.set(id, "User");
-                });
+                console.warn('Edge function error, using profile names:', error);
+                // Don't set fallback names here, let profiles data be used
                 return userDisplayNames;
               }
 
               data.users?.forEach((user: any) => {
                 if (missingIds.includes(user.id) && !userDisplayNames[user.id]) {
-                  const displayName = user.user_metadata?.display_name || 
-                                     user.user_metadata?.full_name || 
+                  const displayName = user.user_metadata?.full_name || 
+                                     user.user_metadata?.display_name || 
                                      user.email ||
                                      "User";
                   userDisplayNames[user.id] = displayName;
@@ -105,7 +103,7 @@ export const useUserDisplayNames = (userIds: string[]) => {
                 }
               });
 
-              // Mark any still missing users
+              // Mark any still missing users with fallback
               missingIds.forEach(id => {
                 if (!userDisplayNames[id]) {
                   userDisplayNames[id] = "User";
@@ -119,8 +117,10 @@ export const useUserDisplayNames = (userIds: string[]) => {
               console.warn('Failed to fetch user display names:', error);
               // Set fallback names for all missing users
               missingIds.forEach(id => {
-                userDisplayNames[id] = "User";
-                displayNameCache.set(id, "User");
+                if (!userDisplayNames[id]) {
+                  userDisplayNames[id] = "User";
+                  displayNameCache.set(id, "User");
+                }
               });
               return userDisplayNames;
             });

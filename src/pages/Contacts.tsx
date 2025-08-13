@@ -15,6 +15,7 @@ const Contacts = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isImporting, setIsImporting] = useState(false);
 
   console.log('Contacts page: Rendering');
 
@@ -34,21 +35,41 @@ const Contacts = () => {
 
     console.log('Contacts page: Starting CSV import with file:', file.name);
     
+    setIsImporting(true);
+    
     try {
+      toast({
+        title: "Import Started",
+        description: `Processing ${file.name}...`,
+      });
+
       await handleImport(file);
+      
+      toast({
+        title: "Import Completed",
+        description: "Contacts have been imported successfully.",
+      });
+
       event.target.value = '';
-    } catch (error) {
+    } catch (error: any) {
       console.error('Import error:', error);
       toast({
         title: "Import Error",
-        description: "Failed to import contacts. Please check your CSV format.",
+        description: error.message || "Failed to import contacts. Please check your CSV format.",
         variant: "destructive",
       });
+    } finally {
+      setIsImporting(false);
     }
   };
 
   const handleExportContacts = async () => {
     try {
+      toast({
+        title: "Export Started",
+        description: "Preparing contacts export...",
+      });
+
       const { data: contacts, error } = await supabase
         .from('contacts')
         .select('*')
@@ -69,6 +90,11 @@ const Contacts = () => {
       }
 
       await handleExportAll(contacts);
+      
+      toast({
+        title: "Export Completed",
+        description: `${contacts.length} contacts exported successfully.`,
+      });
     } catch (error) {
       console.error('Export error:', error);
       toast({
@@ -125,9 +151,9 @@ const Contacts = () => {
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="default">
+              <Button variant="default" disabled={isImporting}>
                 <Download className="w-4 h-4 mr-2" />
-                Action
+                {isImporting ? 'Importing...' : 'Action'}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
@@ -140,6 +166,7 @@ const Contacts = () => {
                     accept=".csv"
                     onChange={handleImportCSV}
                     className="hidden"
+                    disabled={isImporting}
                   />
                 </label>
               </DropdownMenuItem>
