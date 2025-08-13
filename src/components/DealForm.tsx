@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Deal, DealStage, getNextStage, getFinalStageOptions, getStageIndex } from "@/types/deal";
+import { Deal, DealStage, getNextStage, getFinalStageOptions, getStageIndex, DEAL_STAGES } from "@/types/deal";
 import { useToast } from "@/hooks/use-toast";
 import { validateRequiredFields, getFieldErrors, validateDateLogic, validateRevenueSum } from "./deal-form/validation";
 import { DealStageForm } from "./deal-form/DealStageForm";
@@ -38,7 +39,6 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
         quarterly_revenue_q4: deal.quarterly_revenue_q4 ?? 0,
       };
       setFormData(initializedDeal);
-      // Hide validation errors for existing deals initially - only show after Save is clicked
       setShowValidationErrors(false);
     } else if (isCreating && initialStage) {
       // Set default values for new deals
@@ -51,7 +51,6 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
         quarterly_revenue_q4: 0,
       };
       setFormData(defaultData);
-      // Hide validation errors for new deals initially
       setShowValidationErrors(false);
     }
     setShowPreviousStages(false);
@@ -59,14 +58,9 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
 
   const currentStage = formData.stage || 'Lead';
 
-  // Update field errors when form data changes, but only show them if validation should be displayed
+  // No field errors since validation is removed
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const errors = getFieldErrors(formData, currentStage);
-      setFieldErrors(showValidationErrors ? errors : {});
-    }, 50);
-    
-    return () => clearTimeout(timeoutId);
+    setFieldErrors({});
   }, [formData, currentStage, showValidationErrors]);
 
   const handleFieldChange = (field: string, value: any) => {
@@ -81,14 +75,6 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
       (updated as any)[field] = value;
       return updated;
     });
-    
-    // Clear field error when user updates the field (only if validation is showing)
-    if (showValidationErrors && fieldErrors[field]) {
-      setFieldErrors(prev => {
-        const { [field]: _, ...rest } = prev;
-        return rest;
-      });
-    }
   };
 
   const handleLeadSelect = (lead: any) => {
@@ -105,52 +91,7 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
       console.log("Current stage:", currentStage);
       console.log("Form data before save:", formData);
       
-      // Show validation errors when Save is clicked
-      setShowValidationErrors(true);
-      
-      // Validate date logic first
-      const dateValidation = validateDateLogic(formData);
-      if (!dateValidation.isValid) {
-        console.error("Date validation failed:", dateValidation.error);
-        toast({
-          title: "Validation Error",
-          description: dateValidation.error,
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Validate revenue sum for Won stage
-      if (currentStage === 'Won') {
-        const revenueValidation = validateRevenueSum(formData);
-        if (!revenueValidation.isValid) {
-          console.error("Revenue validation failed:", revenueValidation.error);
-          toast({
-            title: "Validation Error",
-            description: revenueValidation.error,
-            variant: "destructive",
-          });
-          return;
-        }
-      }
-      
-      // Skip validation for Offered stage
-      if (currentStage !== 'Offered') {
-        const validationResult = validateRequiredFields(formData, currentStage);
-        
-        console.log("Validation result:", validationResult);
-        
-        if (!validationResult) {
-          console.error("Required fields validation failed");
-          toast({
-            title: "Validation Error",
-            description: "Please fill in all required fields before saving.",
-            variant: "destructive",
-          });
-          return;
-        }
-      }
-      
+      // No validation - allow saving with any data
       const saveData = {
         ...formData,
         deal_name: formData.project_name || formData.deal_name || 'Untitled Deal',
@@ -188,8 +129,6 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
   };
 
   const handleMoveToNextStage = async () => {
-    if (!canMoveToNextStage) return;
-    
     setLoading(true);
     
     try {
@@ -268,8 +207,6 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
   };
 
   const handleMoveToSpecificStage = async (targetStage: DealStage) => {
-    if (!canMoveToStage(targetStage)) return;
-    
     setLoading(true);
     
     try {
@@ -307,51 +244,16 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
     }
   };
 
+  // Allow movement to any stage - no restrictions
   const getAvailableStagesForMoveTo = (): DealStage[] => {
-    const currentIndex = getStageIndex(currentStage);
     const allStages: DealStage[] = ['Lead', 'Discussions', 'Qualified', 'RFQ', 'Offered', 'Won', 'Lost', 'Dropped'];
-    
-    const availableStages: DealStage[] = [];
-    
-    // Add all previous stages (backward movement)
-    for (let i = 0; i < currentIndex; i++) {
-      availableStages.push(allStages[i]);
-    }
-    
-    // For Offered stage, always allow movement to final stages (no validation)
-    if (currentStage === 'Offered') {
-      availableStages.push('Won', 'Lost', 'Dropped');
-    } else {
-      // Add next stage if it exists and requirements are met
-      const nextStage = getNextStage(currentStage);
-      if (nextStage && validateRequiredFields(formData, currentStage) && 
-          validateDateLogic(formData).isValid && 
-          (currentStage !== 'Won' || validateRevenueSum(formData).isValid)) {
-        availableStages.push(nextStage);
-      }
-    }
-    
-    return availableStages;
+    return allStages.filter(stage => stage !== currentStage);
   };
 
-  const canMoveToStage = (targetStage: DealStage): boolean => {
-    const availableStages = getAvailableStagesForMoveTo();
-    return availableStages.includes(targetStage);
-  };
-
-  // Update validation logic for different stages - no validation for Offered
-  const canMoveToNextStage = !isCreating && 
-    getNextStage(currentStage) !== null && 
-    (currentStage === 'Offered' || validateRequiredFields(formData, currentStage)) &&
-    validateDateLogic(formData).isValid &&
-    (currentStage !== 'Won' || validateRevenueSum(formData).isValid);
-
-  const canMoveToFinalStage = !isCreating && 
-    currentStage === 'Offered'; // No validation needed for Offered stage
-
-  const canSave = (currentStage === 'Offered' || validateRequiredFields(formData, currentStage)) && 
-    validateDateLogic(formData).isValid &&
-    (currentStage !== 'Won' || validateRevenueSum(formData).isValid);
+  // No validation - always allow movement and saving
+  const canMoveToNextStage = !isCreating && getNextStage(currentStage) !== null;
+  const canMoveToFinalStage = !isCreating;
+  const canSave = true; // Always allow saving
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -406,18 +308,14 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
             </div>
 
             <div className="flex gap-2">
-              {/* Move to Stage Dropdown */}
+              {/* Move to Stage Dropdown - Allow movement to any stage */}
               {!isCreating && getAvailableStagesForMoveTo().length > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">Move to:</span>
                   <Select
                     value=""
                     onValueChange={(value) => {
-                      if (value === 'Won' || value === 'Lost' || value === 'Dropped') {
-                        handleMoveToFinalStage(value as DealStage);
-                      } else {
-                        handleMoveToSpecificStage(value as DealStage);
-                      }
+                      handleMoveToSpecificStage(value as DealStage);
                     }}
                   >
                     <SelectTrigger className="w-[180px]">
@@ -433,22 +331,6 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
                   </Select>
                 </div>
               )}
-              
-              {/* Validation Message - Skip for Offered stage */}
-              {!isCreating && currentStage !== 'Offered' && (
-                (!validateRequiredFields(formData, currentStage) || 
-                !validateDateLogic(formData).isValid || 
-                (currentStage === 'Won' && !validateRevenueSum(formData).isValid)
-              ) && (
-                <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
-                  {!validateDateLogic(formData).isValid ? 
-                    validateDateLogic(formData).error : 
-                    (currentStage === 'Won' && !validateRevenueSum(formData).isValid) ?
-                      validateRevenueSum(formData).error :
-                      "Complete all required fields to enable stage progression"
-                  }
-                </div>
-              ))}
             </div>
           </div>
         </form>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { Deal, DealStage, DEAL_STAGES, STAGE_COLORS, getRequiredFieldsForStage, getStageIndex, getNextStage } from "@/types/deal";
+import { Deal, DealStage, DEAL_STAGES, STAGE_COLORS } from "@/types/deal";
 import { DealCard } from "./DealCard";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -86,71 +86,10 @@ export const KanbanBoard = ({
     setDraggedDeal(start.draggableId);
   };
 
-  const validateRequiredFields = (deal: Deal): boolean => {
-    console.log("=== VALIDATION DEBUG FOR STAGE:", deal.stage, "===");
-    const requiredFields = getRequiredFieldsForStage(deal.stage);
-    console.log("Required fields:", requiredFields);
-    console.log("Current form data:", deal);
-    
-    return requiredFields.every(field => {
-      const value = deal[field as keyof Deal];
-      console.log(`Validating field ${field} with value:`, { value, _type: typeof value }, `(type: ${typeof value})`);
-      
-      if (field === 'is_recurring') {
-        const isValid = value !== undefined && value !== null;
-        console.log(`is_recurring field ${field} validation result:`, isValid);
-        console.log(`Field ${field}: value = ${value}, isValid = ${isValid}`);
-        return isValid;
-      }
-      
-      if (field === 'priority') {
-        const isValid = value !== undefined && value !== null && value !== '';
-        console.log(`Priority field ${field} validation result:`, isValid);
-        console.log(`Field ${field}: value = ${value}, isValid = ${isValid}`);
-        return isValid;
-      }
-      
-      const isValid = value !== undefined && 
-             value !== null && 
-             value !== '' &&
-             String(value).trim() !== '';
-      
-      console.log(`Generic field ${field} validation result:`, isValid);
-      console.log(`Field ${field}: value = ${value}, isValid = ${isValid}`);
-      return isValid;
-    });
-  };
-
+  // No validation - allow movement to any stage
   const canMoveToStage = (deal: Deal, targetStage: DealStage): boolean => {
-    console.log(`=== CHECKING MOVE FROM ${deal.stage} TO ${targetStage} ===`);
-    
-    const currentStageIndex = getStageIndex(deal.stage);
-    const targetStageIndex = getStageIndex(targetStage);
-    
-    // Allow moving backwards to any previous stage
-    if (targetStageIndex < currentStageIndex) {
-      console.log("Moving backwards - allowed");
-      return true;
-    }
-    
-    const nextStage = getNextStage(deal.stage);
-    const finalStages: DealStage[] = ['Won', 'Lost', 'Dropped'];
-    
-    // Special handling for moving from Offered to final stages
-    if (deal.stage === 'Offered' && finalStages.includes(targetStage)) {
-      console.log("Moving from Offered to final stage - allowed without validation");
-      return true; // Allow moving from Offered to any final stage without validation
-    }
-    
-    // For forward moves to the next stage, validate current stage requirements
-    if (targetStage === nextStage) {
-      const isValid = validateRequiredFields(deal);
-      console.log("Moving to next stage, validation result:", isValid);
-      return isValid;
-    }
-    
-    console.log("Invalid move - not next stage or final stage");
-    return false;
+    console.log(`=== ALLOWING MOVE FROM ${deal.stage} TO ${targetStage} ===`);
+    return true; // Always allow movement
   };
 
   const onDragEnd = async (result: DropResult) => {
@@ -164,33 +103,7 @@ export const KanbanBoard = ({
     
     if (!deal || deal.stage === newStage) return;
 
-    console.log(`Attempting to move deal from ${deal.stage} to ${newStage}`);
-
-    if (!canMoveToStage(deal, newStage)) {
-      const requiredFields = getRequiredFieldsForStage(deal.stage);
-      const missingFields = requiredFields.filter(field => {
-        const value = deal[field as keyof Deal];
-        if (field === 'is_recurring') {
-          return value === undefined || value === null;
-        }
-        return value === undefined || value === null || value === '' || String(value).trim() === '';
-      });
-      
-      if (missingFields.length > 0) {
-        toast({
-          title: "Cannot Move Deal",
-          description: `Complete required fields first: ${missingFields.join(', ')}`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Invalid Move",
-          description: "Deals can only move forward one stage at a time.",
-          variant: "destructive",
-        });
-      }
-      return;
-    }
+    console.log(`Moving deal from ${deal.stage} to ${newStage}`);
 
     try {
       console.log(`Moving deal ${draggableId} to stage ${newStage}`);
@@ -319,7 +232,7 @@ export const KanbanBoard = ({
       </div>
 
       {/* Sticky stage headers */}
-      <div className="flex-shrink-0 px-4 pt-3 bg-background border-b border-border/30 z-10">
+      <div className="flex-shrink-0 px-4 pt-3 bg-background border-b border-border/30 z-10 sticky top-0">
         <div 
           className="grid gap-3"
           style={{ 
