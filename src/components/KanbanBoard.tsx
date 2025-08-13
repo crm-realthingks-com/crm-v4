@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Deal, DealStage, DEAL_STAGES, STAGE_COLORS, getRequiredFieldsForStage, getStageIndex, getNextStage } from "@/types/deal";
@@ -286,7 +287,13 @@ export const KanbanBoard = ({
 
       <div className="flex-1 min-h-0 px-6 py-4">
         <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <div className="grid gap-4 h-full auto-cols-fr" style={{ gridTemplateColumns: `repeat(${visibleStages.length}, 1fr)` }}>
+          <div 
+            className="grid gap-4 h-full"
+            style={{ 
+              gridTemplateColumns: `repeat(${visibleStages.length}, minmax(280px, 1fr))`,
+              minWidth: `${visibleStages.length * 280}px`
+            }}
+          >
             {visibleStages.map((stage) => {
               const stageDeals = getDealsByStage(stage);
               const selectedInStage = stageDeals.filter(deal => selectedDeals.has(deal.id)).length;
@@ -332,30 +339,31 @@ export const KanbanBoard = ({
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`flex-1 space-y-3 p-2 rounded-lg transition-all min-h-0 ${
+                        className={`flex-1 space-y-3 p-2 rounded-lg transition-all min-h-0 overflow-y-auto ${
                           snapshot.isDraggingOver ? 'bg-muted/50 shadow-inner' : ''
                         }`}
                         style={{ 
-                          overflowY: 'auto',
                           scrollbarWidth: 'thin',
                           scrollbarColor: 'hsl(var(--border)) transparent'
                         }}
                       >
-                        <style jsx>{`
-                          div::-webkit-scrollbar {
-                            width: 4px;
-                          }
-                          div::-webkit-scrollbar-track {
-                            background: transparent;
-                          }
-                          div::-webkit-scrollbar-thumb {
-                            background: hsl(var(--border));
-                            border-radius: 2px;
-                          }
-                          div::-webkit-scrollbar-thumb:hover {
-                            background: hsl(var(--muted-foreground));
-                          }
-                        `}</style>
+                        <style>
+                          {`
+                            .overflow-y-auto::-webkit-scrollbar {
+                              width: 4px;
+                            }
+                            .overflow-y-auto::-webkit-scrollbar-track {
+                              background: transparent;
+                            }
+                            .overflow-y-auto::-webkit-scrollbar-thumb {
+                              background: hsl(var(--border));
+                              border-radius: 2px;
+                            }
+                            .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+                              background: hsl(var(--muted-foreground));
+                            }
+                          `}
+                        </style>
                         {stageDeals.map((deal, index) => (
                           <Draggable 
                             key={deal.id} 
