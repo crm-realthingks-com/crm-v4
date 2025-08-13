@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Deal, DealStage, DEAL_STAGES, STAGE_COLORS, getRequiredFieldsForStage, getStageIndex, getNextStage } from "@/types/deal";
@@ -251,10 +250,10 @@ export const KanbanBoard = ({
   const visibleStages = getVisibleStages();
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-shrink-0 px-6 py-4 bg-background border-b border-border">
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-1 min-w-0">
+    <div className="flex flex-col h-screen overflow-hidden">
+      <div className="flex-shrink-0 px-6 py-3 bg-background border-b border-border">
+        <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-1 min-w-0">
             <div className="relative flex-1 min-w-[200px] max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
@@ -285,13 +284,32 @@ export const KanbanBoard = ({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 px-6 py-4">
+      <div className="flex-1 min-h-0 overflow-hidden px-4 py-3">
+        <style>
+          {`
+            .deals-scrollbar::-webkit-scrollbar {
+              width: 2px;
+              height: 2px;
+            }
+            .deals-scrollbar::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .deals-scrollbar::-webkit-scrollbar-thumb {
+              background: hsl(var(--border));
+              border-radius: 1px;
+            }
+            .deals-scrollbar::-webkit-scrollbar-thumb:hover {
+              background: hsl(var(--muted-foreground));
+            }
+          `}
+        </style>
         <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
           <div 
-            className="grid gap-4 h-full"
+            className="grid gap-3 h-full overflow-x-auto deals-scrollbar"
             style={{ 
-              gridTemplateColumns: `repeat(${visibleStages.length}, minmax(280px, 1fr))`,
-              minWidth: `${visibleStages.length * 280}px`
+              gridTemplateColumns: `repeat(${visibleStages.length}, minmax(260px, 1fr))`,
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'hsl(var(--border)) transparent'
             }}
           >
             {visibleStages.map((stage) => {
@@ -300,8 +318,8 @@ export const KanbanBoard = ({
               const allSelected = selectedInStage === stageDeals.length && stageDeals.length > 0;
               
               return (
-                <div key={stage} className="flex flex-col animate-fade-in h-full min-w-0">
-                  <div className={`p-3 rounded-lg border-2 ${STAGE_COLORS[stage]} mb-4 transition-all hover:shadow-md flex-shrink-0`}>
+                <div key={stage} className="flex flex-col h-full min-w-0">
+                  <div className={`p-3 rounded-lg border-2 ${STAGE_COLORS[stage]} mb-3 transition-all hover:shadow-md flex-shrink-0`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         {selectionMode && (
@@ -339,7 +357,7 @@ export const KanbanBoard = ({
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`flex-1 space-y-3 p-2 rounded-lg transition-all min-h-0 overflow-y-auto ${
+                        className={`flex-1 space-y-2 p-2 rounded-lg transition-all min-h-0 overflow-y-auto deals-scrollbar ${
                           snapshot.isDraggingOver ? 'bg-muted/50 shadow-inner' : ''
                         }`}
                         style={{ 
@@ -347,23 +365,6 @@ export const KanbanBoard = ({
                           scrollbarColor: 'hsl(var(--border)) transparent'
                         }}
                       >
-                        <style>
-                          {`
-                            .overflow-y-auto::-webkit-scrollbar {
-                              width: 4px;
-                            }
-                            .overflow-y-auto::-webkit-scrollbar-track {
-                              background: transparent;
-                            }
-                            .overflow-y-auto::-webkit-scrollbar-thumb {
-                              background: hsl(var(--border));
-                              border-radius: 2px;
-                            }
-                            .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-                              background: hsl(var(--muted-foreground));
-                            }
-                          `}
-                        </style>
                         {stageDeals.map((deal, index) => (
                           <Draggable 
                             key={deal.id} 
