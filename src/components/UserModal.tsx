@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,8 @@ const UserModal = ({ open, onClose, onSuccess }: UserModalProps) => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.functions.invoke('admin-create-user', {
+      const { error } = await supabase.functions.invoke('admin-users', {
+        method: 'POST',
         body: {
           email,
           displayName,

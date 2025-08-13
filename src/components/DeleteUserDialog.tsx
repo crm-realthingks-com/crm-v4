@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -29,7 +30,8 @@ const DeleteUserDialog = ({ open, onClose, user, onSuccess }: DeleteUserDialogPr
     setLoading(true);
 
     try {
-      const { error } = await supabase.functions.invoke('admin-delete-user', {
+      const { error } = await supabase.functions.invoke('admin-users', {
+        method: 'DELETE',
         body: {
           userId: user.id
         }

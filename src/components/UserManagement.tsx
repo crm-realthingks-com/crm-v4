@@ -36,27 +36,29 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
 
-  // Memoized fetch function to prevent recreation on every render
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('Fetching users...');
       
-      // Get current session from memory instead of calling getSession()
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error("No valid session found. Please log in again.");
       }
       
-      const { data, error } = await supabase.functions.invoke('admin-list-users');
+      const { data, error } = await supabase.functions.invoke('admin-users', {
+        method: 'GET'
+      });
       
       if (error) {
-        // Handle specific authentication errors
+        console.error('Error fetching users:', error);
         if (error.message?.includes('Invalid token') || error.message?.includes('Session not found')) {
           throw new Error("Your session has expired. Please refresh the page and log in again.");
         }
         throw error;
       }
       
+      console.log('Users fetched successfully:', data.users?.length || 0);
       setUsers(data.users || []);
     } catch (error: any) {
       console.error('Error fetching users:', error);
@@ -68,9 +70,8 @@ const UserManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]); // Only depend on toast to prevent unnecessary recreation
+  }, [toast]);
 
-  // Debounced sync function to prevent excessive calls
   const syncWithAuth = useCallback(async () => {
     try {
       toast({
@@ -78,7 +79,6 @@ const UserManagement = () => {
         description: "Refreshing session and syncing with Supabase Auth...",
       });
       
-      // Try to refresh the session only once
       const { error: refreshError } = await supabase.auth.refreshSession();
       if (refreshError) {
         throw new Error("Failed to refresh session. Please log in again.");
@@ -111,7 +111,8 @@ const UserManagement = () => {
   const handleToggleUserStatus = useCallback(async (user: User) => {
     try {
       const action = user.banned_until ? 'activate' : 'deactivate';
-      const { error } = await supabase.functions.invoke('admin-update-user', {
+      const { error } = await supabase.functions.invoke('admin-users', {
+        method: 'PUT',
         body: {
           userId: user.id,
           action: action
@@ -125,7 +126,6 @@ const UserManagement = () => {
         description: `User ${action}d successfully`,
       });
       
-      // Refresh users after successful update
       await fetchUsers();
     } catch (error) {
       console.error('Error updating user status:', error);
@@ -153,7 +153,6 @@ const UserManagement = () => {
     }
   }, []);
 
-  // Only fetch users once on mount
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
@@ -272,7 +271,6 @@ const UserManagement = () => {
         </CardContent>
       </Card>
 
-      {/* Modals */}
       <UserModal 
         open={showAddModal} 
         onClose={() => setShowAddModal(false)}

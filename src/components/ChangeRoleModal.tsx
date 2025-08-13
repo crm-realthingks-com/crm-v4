@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,8 @@ const ChangeRoleModal = ({ open, onClose, user, onSuccess }: ChangeRoleModalProp
     setLoading(true);
 
     try {
-      const { error } = await supabase.functions.invoke('admin-update-user', {
+      const { error } = await supabase.functions.invoke('admin-users', {
+        method: 'PUT',
         body: {
           userId: user.id,
           role
