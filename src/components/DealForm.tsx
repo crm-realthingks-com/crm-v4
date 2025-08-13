@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -97,22 +96,6 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
     // The lead selection is handled in the FormFieldRenderer component
   };
 
-  // Custom validation function for Offered stage
-  const validateOfferedStage = (data: Partial<Deal>): boolean => {
-    const requiredOfferedFields = ['business_value', 'decision_maker_level', 'current_status', 'closing'];
-    
-    return requiredOfferedFields.every(field => {
-      const value = data[field as keyof Deal];
-      const isValid = value !== undefined && 
-                     value !== null && 
-                     value !== '' &&
-                     String(value).trim() !== '';
-      
-      console.log(`Offered stage validation - Field ${field}: value = ${value}, isValid = ${isValid}`);
-      return isValid;
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -151,26 +134,21 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
         }
       }
       
-      // Use custom validation for Offered stage, standard validation for others
-      let validationResult: boolean;
-      if (currentStage === 'Offered') {
-        validationResult = validateOfferedStage(formData);
-      } else {
-        validationResult = validateRequiredFields(formData, currentStage);
-      }
-      
-      console.log("Validation result:", validationResult);
-      
-      if (!validationResult) {
-        console.error("Required fields validation failed");
-        toast({
-          title: "Validation Error",
-          description: currentStage === 'Offered' ? 
-            "Please fill in Business Value, Decision Maker Level, Current Status, and Closing before saving." :
-            "Please fill in all required fields before saving.",
-          variant: "destructive",
-        });
-        return;
+      // Skip validation for Offered stage
+      if (currentStage !== 'Offered') {
+        const validationResult = validateRequiredFields(formData, currentStage);
+        
+        console.log("Validation result:", validationResult);
+        
+        if (!validationResult) {
+          console.error("Required fields validation failed");
+          toast({
+            title: "Validation Error",
+            description: "Please fill in all required fields before saving.",
+            variant: "destructive",
+          });
+          return;
+        }
       }
       
       const saveData = {
@@ -340,11 +318,9 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
       availableStages.push(allStages[i]);
     }
     
-    // For Offered stage, add final stages if required fields are filled
+    // For Offered stage, always allow movement to final stages (no validation)
     if (currentStage === 'Offered') {
-      if (validateOfferedStage(formData) && validateDateLogic(formData).isValid) {
-        availableStages.push('Won', 'Lost', 'Dropped');
-      }
+      availableStages.push('Won', 'Lost', 'Dropped');
     } else {
       // Add next stage if it exists and requirements are met
       const nextStage = getNextStage(currentStage);
@@ -363,19 +339,17 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
     return availableStages.includes(targetStage);
   };
 
-  // Update validation logic for different stages
+  // Update validation logic for different stages - no validation for Offered
   const canMoveToNextStage = !isCreating && 
     getNextStage(currentStage) !== null && 
-    (currentStage === 'Offered' ? validateOfferedStage(formData) : validateRequiredFields(formData, currentStage)) &&
+    (currentStage === 'Offered' || validateRequiredFields(formData, currentStage)) &&
     validateDateLogic(formData).isValid &&
     (currentStage !== 'Won' || validateRevenueSum(formData).isValid);
 
   const canMoveToFinalStage = !isCreating && 
-    currentStage === 'Offered' && 
-    validateOfferedStage(formData) &&
-    validateDateLogic(formData).isValid;
+    currentStage === 'Offered'; // No validation needed for Offered stage
 
-  const canSave = (currentStage === 'Offered' ? validateOfferedStage(formData) : validateRequiredFields(formData, currentStage)) && 
+  const canSave = (currentStage === 'Offered' || validateRequiredFields(formData, currentStage)) && 
     validateDateLogic(formData).isValid &&
     (currentStage !== 'Won' || validateRevenueSum(formData).isValid);
 
@@ -460,10 +434,9 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
                 </div>
               )}
               
-              {/* Validation Message */}
-              {!isCreating && (
-                (currentStage === 'Offered' && !validateOfferedStage(formData)) || 
-                (currentStage !== 'Offered' && !validateRequiredFields(formData, currentStage)) || 
+              {/* Validation Message - Skip for Offered stage */}
+              {!isCreating && currentStage !== 'Offered' && (
+                (!validateRequiredFields(formData, currentStage) || 
                 !validateDateLogic(formData).isValid || 
                 (currentStage === 'Won' && !validateRevenueSum(formData).isValid)
               ) && (
@@ -472,12 +445,10 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
                     validateDateLogic(formData).error : 
                     (currentStage === 'Won' && !validateRevenueSum(formData).isValid) ?
                       validateRevenueSum(formData).error :
-                      currentStage === 'Offered' ?
-                        "Complete Business Value, Decision Maker Level, Current Status, and Closing to enable stage progression" :
-                        "Complete all required fields to enable stage progression"
+                      "Complete all required fields to enable stage progression"
                   }
                 </div>
-              )}
+              ))}
             </div>
           </div>
         </form>

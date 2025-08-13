@@ -1,12 +1,11 @@
-
 import { Deal, DealStage, getRequiredFieldsForStage } from "@/types/deal";
 
 export const validateField = (field: string, value: any, stage: DealStage, formData?: Partial<Deal>): boolean => {
   let requiredFields = getRequiredFieldsForStage(stage);
   
-  // Override required fields for Offered stage
+  // Skip validation entirely for Offered stage
   if (stage === 'Offered') {
-    requiredFields = ['business_value', 'decision_maker_level', 'current_status', 'closing'];
+    return true;
   }
   
   if (!requiredFields.includes(field)) {
@@ -117,12 +116,13 @@ export const validateField = (field: string, value: any, stage: DealStage, formD
 };
 
 export const validateRequiredFields = (formData: Partial<Deal>, stage: DealStage): boolean => {
-  let requiredFields = getRequiredFieldsForStage(stage);
-  
-  // Override required fields for Offered stage
+  // Skip validation entirely for Offered stage
   if (stage === 'Offered') {
-    requiredFields = ['business_value', 'decision_maker_level', 'current_status', 'closing'];
+    console.log(`=== VALIDATION SKIPPED FOR OFFERED STAGE ===`);
+    return true;
   }
+  
+  let requiredFields = getRequiredFieldsForStage(stage);
   
   console.log(`=== VALIDATION DEBUG FOR STAGE: ${stage} ===`);
   console.log(`Required fields:`, requiredFields);
@@ -226,13 +226,12 @@ export const validateRevenueSum = (formData: Partial<Deal>): { isValid: boolean;
 };
 
 export const getFieldErrors = (formData: Partial<Deal>, stage: DealStage): Record<string, string> => {
-  let requiredFields = getRequiredFieldsForStage(stage);
-  
-  // Override required fields for Offered stage
+  // Skip field errors for Offered stage
   if (stage === 'Offered') {
-    requiredFields = ['business_value', 'decision_maker_level', 'current_status', 'closing'];
+    return {};
   }
   
+  let requiredFields = getRequiredFieldsForStage(stage);
   const errors: Record<string, string> = {};
   
   const getFieldLabel = (field: string) => {
