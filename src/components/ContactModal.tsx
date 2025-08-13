@@ -50,25 +50,18 @@ interface ContactModalProps {
 }
 
 const contactSources = [
+  "LinkedIn",
   "Website",
   "Referral", 
   "Social Media",
   "Email Campaign",
-  "Trade Show",
-  "Cold Call",
-  "LinkedIn",
   "Other"
 ];
 
 const industries = [
   "Automotive",
   "Technology",
-  "Healthcare",
-  "Finance",
   "Manufacturing",
-  "Retail",
-  "Education",
-  "Real Estate",
   "Other"
 ];
 
@@ -76,9 +69,6 @@ const regions = [
   "EU",
   "US", 
   "ASIA",
-  "APAC",
-  "LATAM",
-  "MEA",
   "Other"
 ];
 
@@ -228,7 +218,7 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
                   <FormItem>
                     <FormLabel>Contact Name *</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} />
+                      <Input placeholder="Contact Name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -242,7 +232,7 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
                   <FormItem>
                     <FormLabel>Company Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Acme Corp" {...field} />
+                      <Input placeholder="Company Name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -270,7 +260,7 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
                   <FormItem>
                     <FormLabel>Email *</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="john@acme.com" {...field} />
+                      <Input type="email" placeholder=" " {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -298,7 +288,7 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
                   <FormItem>
                     <FormLabel>LinkedIn Profile</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://linkedin.com/in/johndoe" {...field} />
+                      <Input placeholder="https://linkedin.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -312,7 +302,7 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
                   <FormItem>
                     <FormLabel>Website</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://acme.com" {...field} />
+                      <Input placeholder="https://realthingks.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
