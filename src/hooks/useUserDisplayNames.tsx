@@ -2,11 +2,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-interface UserDisplayName {
-  id: string;
-  display_name: string;
-}
-
 // Create a global cache to prevent duplicate fetches
 const displayNameCache = new Map<string, string>();
 const pendingFetches = new Map<string, Promise<any>>();
@@ -63,41 +58,58 @@ export const useUserDisplayNames = (userIds: string[]) => {
           return;
         }
 
-        console.log('useUserDisplayNames: Fetching uncached user IDs:', uncachedIds);
+        console.log('useUserDisplayNames: Calling edge function for uncached user IDs:', uncachedIds);
 
-        // Try direct profiles table query first as fallback
-        console.log('useUserDisplayNames: Trying direct profiles query...');
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name, "Email ID"')
-          .in('id', uncachedIds);
+        // Call the new edge function
+        const { data: functionResult, error: functionError } = await supabase.functions.invoke(
+          'fetch-user-display-names',
+          {
+            body: { userIds: uncachedIds }
+          }
+        );
 
-        console.log('useUserDisplayNames: Profiles query result:', { 
-          data: profilesData, 
-          error: profilesError 
-        });
+        console.log('useUserDisplayNames: Edge function result:', { functionResult, functionError });
 
-        const newDisplayNames: Record<string, string> = {};
+        let newDisplayNames: Record<string, string> = {};
 
-        if (!profilesError && profilesData) {
-          profilesData.forEach((profile) => {
-            const displayName = profile.full_name || profile["Email ID"] || "User";
-            newDisplayNames[profile.id] = displayName;
-            displayNameCache.set(profile.id, displayName);
-            console.log(`useUserDisplayNames: Set display name from profiles for ${profile.id}: ${displayName}`);
+        if (!functionError && functionResult?.userDisplayNames) {
+          newDisplayNames = functionResult.userDisplayNames;
+          
+          // Cache the results
+          Object.entries(newDisplayNames).forEach(([id, name]) => {
+            displayNameCache.set(id, name);
+          });
+          
+          console.log('useUserDisplayNames: Successfully fetched from edge function:', newDisplayNames);
+        } else {
+          console.log('useUserDisplayNames: Edge function failed, trying direct query fallback');
+          
+          // Fallback to direct query if edge function fails
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, full_name, "Email ID"')
+            .in('id', uncachedIds);
+
+          console.log('useUserDisplayNames: Direct profiles query result:', { profilesData, profilesError });
+
+          if (!profilesError && profilesData) {
+            profilesData.forEach((profile) => {
+              const displayName = profile.full_name || profile["Email ID"] || "Unknown User";
+              newDisplayNames[profile.id] = displayName;
+              displayNameCache.set(profile.id, displayName);
+            });
+          }
+
+          // Set fallback for any still missing users
+          uncachedIds.forEach(id => {
+            if (!newDisplayNames[id]) {
+              newDisplayNames[id] = "Unknown User";
+              displayNameCache.set(id, "Unknown User");
+            }
           });
         }
 
-        // For any still missing users, set fallback
-        uncachedIds.forEach(id => {
-          if (!newDisplayNames[id]) {
-            newDisplayNames[id] = "Unknown User";
-            displayNameCache.set(id, "Unknown User");
-            console.log(`useUserDisplayNames: Set fallback name for ${id}: Unknown User`);
-          }
-        });
-
-        console.log('useUserDisplayNames: Final result:', newDisplayNames);
+        console.log('useUserDisplayNames: Final new display names:', newDisplayNames);
         setDisplayNames(prev => ({ ...prev, ...newDisplayNames }));
         
       } catch (error) {
