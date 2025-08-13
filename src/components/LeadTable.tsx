@@ -15,6 +15,8 @@ import {
   Edit, 
   Trash2, 
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   ChevronLeft,
   ChevronRight,
   RefreshCw
@@ -86,9 +88,11 @@ export const LeadTable = ({
   const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
   const [columns, setColumns] = useState(defaultColumns);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(50); // Changed from 10 to 50
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [leadToConvert, setLeadToConvert] = useState<Lead | null>(null);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     fetchLeads();
@@ -105,9 +109,36 @@ export const LeadTable = ({
       filtered = filtered.filter(lead => lead.lead_status === statusFilter);
     }
 
+    // Apply sorting
+    if (sortField) {
+      filtered.sort((a, b) => {
+        const aValue = a[sortField as keyof Lead] || '';
+        const bValue = b[sortField as keyof Lead] || '';
+        
+        const comparison = aValue.toString().localeCompare(bValue.toString());
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+    }
+
     setFilteredLeads(filtered);
     setCurrentPage(1);
-  }, [leads, searchTerm, statusFilter]);
+  }, [leads, searchTerm, statusFilter, sortField, sortDirection]);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: string) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-4 h-4" />;
+    }
+    return sortDirection === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />;
+  };
 
   const fetchLeads = async () => {
     try {
@@ -194,6 +225,36 @@ export const LeadTable = ({
     setShowConvertModal(true);
   };
 
+  const handleConvertSuccess = async () => {
+    // Update the lead status to "Converted" immediately
+    if (leadToConvert) {
+      try {
+        const { error } = await supabase
+          .from('leads')
+          .update({ lead_status: 'Converted' })
+          .eq('id', leadToConvert.id);
+
+        if (error) {
+          console.error("Error updating lead status:", error);
+        } else {
+          // Update local state immediately
+          setLeads(prevLeads => 
+            prevLeads.map(lead => 
+              lead.id === leadToConvert.id 
+                ? { ...lead, lead_status: 'Converted' }
+                : lead
+            )
+          );
+        }
+      } catch (error) {
+        console.error("Error updating lead status:", error);
+      }
+    }
+    
+    fetchLeads();
+    setLeadToConvert(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header and Actions */}
@@ -233,9 +294,12 @@ export const LeadTable = ({
               </TableHead>
               {visibleColumns.map((column) => (
                 <TableHead key={column.field}>
-                  <div className="flex items-center gap-2">
+                  <div 
+                    className="flex items-center gap-2 cursor-pointer hover:text-primary"
+                    onClick={() => handleSort(column.field)}
+                  >
                     {column.label}
-                    <ArrowUpDown className="w-4 h-4" />
+                    {getSortIcon(column.field)}
                   </div>
                 </TableHead>
               ))}
@@ -307,6 +371,7 @@ export const LeadTable = ({
                         <Badge variant={
                           lead.lead_status === 'New' ? 'secondary' : 
                           lead.lead_status === 'Contacted' ? 'default' : 
+                          lead.lead_status === 'Converted' ? 'outline' :
                           'outline'
                         }>
                           {lead.lead_status}
@@ -342,6 +407,7 @@ export const LeadTable = ({
                         variant="outline"
                         size="sm"
                         onClick={() => handleConvertToDeal(lead)}
+                        disabled={lead.lead_status === 'Converted'}
                       >
                         <RefreshCw className="w-4 h-4 mr-1" />
                         Convert
@@ -411,10 +477,7 @@ export const LeadTable = ({
         open={showConvertModal}
         onOpenChange={setShowConvertModal}
         lead={leadToConvert}
-        onSuccess={() => {
-          fetchLeads();
-          setLeadToConvert(null);
-        }}
+        onSuccess={handleConvertSuccess}
       />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
