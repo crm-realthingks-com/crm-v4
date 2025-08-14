@@ -251,7 +251,7 @@ export const FormFieldRenderer = ({ field, value, onChange, onLeadSelect, error 
               <SelectValue placeholder="Select region" />
             </SelectTrigger>
             <SelectContent>
-              {['EU', 'US', 'APAC', 'MEA', 'LATAM', 'India', 'Asia'].map(region => (
+              {['EU', 'US', 'ASIA', 'Other'].map(region => (
                 <SelectItem key={region} value={region}>
                   {region}
                 </SelectItem>

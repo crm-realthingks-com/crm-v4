@@ -50,7 +50,6 @@ const Leads = () => {
             onClick={() => setShowColumnCustomizer(true)}
           >
             <Settings className="w-4 h-4 mr-2" />
-            Column Customization
           </Button>
           
           {selectedLeads.length > 0 && (

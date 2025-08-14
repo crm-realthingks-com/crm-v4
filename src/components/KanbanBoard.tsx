@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useMemo, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Deal, DealStage, DEAL_STAGES, STAGE_COLORS } from "@/types/deal";
 import { DealCard } from "./DealCard";
@@ -9,6 +10,7 @@ import { Plus, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BulkActionsBar } from "./BulkActionsBar";
 import { ImportExportBar } from "./ImportExportBar";
+import { DealsAdvancedFilter, AdvancedFilterState } from "./DealsAdvancedFilter";
 
 interface KanbanBoardProps {
   deals: Deal[];
@@ -33,37 +35,79 @@ export const KanbanBoard = ({
   const [selectedDeals, setSelectedDeals] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState<AdvancedFilterState>({
+    stages: [],
+    regions: [],
+    leadOwners: [],
+    priorities: [],
+    probabilities: [],
+    handoffStatuses: [],
+    searchTerm: "",
+    probabilityRange: [0, 100],
+  });
   const { toast } = useToast();
 
-  const filterDeals = (deals: Deal[]) => {
-    if (!searchTerm) return deals;
+  // Generate available options for multi-select filters
+  const availableOptions = useMemo(() => {
+    const regions = Array.from(new Set(deals.map(d => d.region).filter(Boolean)));
+    const leadOwners = Array.from(new Set(deals.map(d => d.lead_owner).filter(Boolean)));
+    const priorities = Array.from(new Set(deals.map(d => String(d.priority)).filter(p => p !== 'undefined')));
+    const probabilities = Array.from(new Set(deals.map(d => String(d.probability)).filter(p => p !== 'undefined')));
+    const handoffStatuses = Array.from(new Set(deals.map(d => d.handoff_status).filter(Boolean)));
     
-    const searchValue = searchTerm.toLowerCase();
-    return deals.filter(deal => 
-      deal.project_name?.toLowerCase().includes(searchValue) ||
-      deal.customer_name?.toLowerCase().includes(searchValue) ||
-      deal.lead_name?.toLowerCase().includes(searchValue) ||
-      deal.lead_owner?.toLowerCase().includes(searchValue) ||
-      deal.region?.toLowerCase().includes(searchValue) ||
-      deal.internal_comment?.toLowerCase().includes(searchValue) ||
-      deal.customer_need?.toLowerCase().includes(searchValue) ||
-      deal.customer_challenges?.toLowerCase().includes(searchValue) ||
-      deal.relationship_strength?.toLowerCase().includes(searchValue) ||
-      deal.budget?.toLowerCase().includes(searchValue) ||
-      deal.business_value?.toLowerCase().includes(searchValue) ||
-      deal.decision_maker_level?.toLowerCase().includes(searchValue) ||
-      deal.currency_type?.toLowerCase().includes(searchValue) ||
-      deal.action_items?.toLowerCase().includes(searchValue) ||
-      deal.current_status?.toLowerCase().includes(searchValue) ||
-      deal.won_reason?.toLowerCase().includes(searchValue) ||
-      deal.lost_reason?.toLowerCase().includes(searchValue) ||
-      deal.need_improvement?.toLowerCase().includes(searchValue) ||
-      deal.drop_reason?.toLowerCase().includes(searchValue) ||
-      deal.stage?.toLowerCase().includes(searchValue) ||
-      String(deal.priority || '').includes(searchValue) ||
-      String(deal.probability || '').includes(searchValue) ||
-      String(deal.total_contract_value || '').includes(searchValue)
-    );
+    return {
+      regions,
+      leadOwners,
+      priorities,
+      probabilities,
+      handoffStatuses,
+    };
+  }, [deals]);
+
+  useEffect(() => {
+    const savedFilters = localStorage.getItem('deals-kanban-filters');
+    if (savedFilters) {
+      try {
+        const parsed = JSON.parse(savedFilters);
+        setFilters(parsed);
+        setSearchTerm(parsed.searchTerm || "");
+      } catch (e) {
+        console.error('Failed to parse saved filters:', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const filtersWithSearch = { ...filters, searchTerm };
+    localStorage.setItem('deals-kanban-filters', JSON.stringify(filtersWithSearch));
+  }, [filters, searchTerm]);
+
+  const filterDeals = (deals: Deal[]) => {
+    return deals.filter(deal => {
+      // Combine search from both searchTerm and filters.searchTerm
+      const allSearchTerms = [searchTerm, filters.searchTerm].filter(Boolean).join(' ').toLowerCase();
+      const searchMatch = !allSearchTerms || 
+        deal.deal_name?.toLowerCase().includes(allSearchTerms) ||
+        deal.project_name?.toLowerCase().includes(allSearchTerms) ||
+        deal.lead_name?.toLowerCase().includes(allSearchTerms) ||
+        deal.customer_name?.toLowerCase().includes(allSearchTerms) ||
+        deal.region?.toLowerCase().includes(allSearchTerms);
+      
+      // Apply multi-select filters
+      const matchesStages = filters.stages.length === 0 || filters.stages.includes(deal.stage);
+      const matchesRegions = filters.regions.length === 0 || filters.regions.includes(deal.region || '');
+      const matchesLeadOwners = filters.leadOwners.length === 0 || filters.leadOwners.includes(deal.lead_owner || '');
+      const matchesPriorities = filters.priorities.length === 0 || filters.priorities.includes(String(deal.priority || ''));
+      const matchesProbabilities = filters.probabilities.length === 0 || filters.probabilities.includes(String(deal.probability || ''));
+      const matchesHandoffStatuses = filters.handoffStatuses.length === 0 || filters.handoffStatuses.includes(deal.handoff_status || '');
+      
+      // Probability range filter
+      const dealProbability = deal.probability || 0;
+      const matchesProbabilityRange = dealProbability >= filters.probabilityRange[0] && dealProbability <= filters.probabilityRange[1];
+      
+      return searchMatch && matchesStages && matchesRegions && matchesLeadOwners && 
+             matchesPriorities && matchesProbabilities && matchesHandoffStatuses && matchesProbabilityRange;
+    });
   };
 
   const getDealsByStage = (stage: DealStage) => {
@@ -86,10 +130,9 @@ export const KanbanBoard = ({
     setDraggedDeal(start.draggableId);
   };
 
-  // No validation - allow movement to any stage
   const canMoveToStage = (deal: Deal, targetStage: DealStage): boolean => {
     console.log(`=== ALLOWING MOVE FROM ${deal.stage} TO ${targetStage} ===`);
-    return true; // Always allow movement
+    return true;
   };
 
   const onDragEnd = async (result: DropResult) => {
@@ -193,50 +236,73 @@ export const KanbanBoard = ({
     }
   };
 
+  // Get selected deal objects for export
+  const selectedDealObjects = deals.filter(deal => selectedDeals.has(deal.id));
+
   const visibleStages = getVisibleStages();
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      {/* Top search and controls bar */}
-      <div className="flex-shrink-0 px-6 py-3 bg-background border-b border-border">
-        <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-1 min-w-0">
-            <div className="relative flex-1 min-w-[200px] max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Fixed top search and controls bar */}
+      <div className="flex-shrink-0 px-4 py-2 bg-background border-b border-border">
+        <div className="flex flex-col lg:flex-row gap-2 items-start lg:items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 flex-1 min-w-0">
+            <div className="relative flex-1 min-w-[180px] max-w-sm">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-3 h-3" />
               <Input
                 placeholder="Search all deal details..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 transition-all hover:border-primary/50 focus:border-primary w-full text-base"
+                className="pl-8 h-8 text-sm transition-all hover:border-primary/50 focus:border-primary w-full"
               />
             </div>
+            
+            <DealsAdvancedFilter 
+              filters={filters} 
+              onFiltersChange={setFilters}
+              availableRegions={availableOptions.regions}
+              availableLeadOwners={availableOptions.leadOwners}
+              availablePriorities={availableOptions.priorities}
+              availableProbabilities={availableOptions.probabilities}
+              availableHandoffStatuses={availableOptions.handoffStatuses}
+            />
             
             <div className="flex items-center gap-2 flex-shrink-0">
               <Button
                 variant={selectionMode ? "default" : "outline"}
                 size="sm"
                 onClick={toggleSelectionMode}
-                className="hover-scale transition-all whitespace-nowrap text-base"
+                className="hover-scale transition-all whitespace-nowrap text-sm h-8 px-3"
               >
                 {selectionMode ? "Exit Selection" : "Select Deals"}
               </Button>
               
               {selectionMode && selectedDeals.size > 0 && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
-                  <span className="font-medium text-base">{selectedDeals.size} selected</span>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
+                  <span className="font-medium">{selectedDeals.size} selected</span>
                 </div>
               )}
             </div>
           </div>
+          
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <ImportExportBar
+              deals={deals}
+              onImport={onImportDeals}
+              onExport={() => {}}
+              selectedDeals={selectedDealObjects}
+              onRefresh={onRefresh}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Sticky stage headers */}
-      <div className="flex-shrink-0 px-4 pt-3 bg-background border-b border-border/30 z-10 sticky top-0">
+      {/* Fixed stage headers */}
+      <div className="flex-shrink-0 px-3 pt-2 bg-background border-b border-border/30 z-10 sticky top-0">
         <div 
-          className="grid gap-3"
+          className="grid gap-2"
           style={{ 
-            gridTemplateColumns: `repeat(${visibleStages.length}, minmax(280px, 1fr))`
+            gridTemplateColumns: `repeat(${visibleStages.length}, minmax(240px, 1fr))`
           }}
         >
           {visibleStages.map((stage) => {
@@ -245,20 +311,20 @@ export const KanbanBoard = ({
             const allSelected = selectedInStage === stageDeals.length && stageDeals.length > 0;
             
             return (
-              <div key={stage} className={`p-3 rounded-lg border-2 ${STAGE_COLORS[stage]} transition-all hover:shadow-md`}>
+              <div key={stage} className={`p-2 rounded-lg border-2 ${STAGE_COLORS[stage]} transition-all hover:shadow-md`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {selectionMode && (
                       <Checkbox
                         checked={allSelected}
                         onCheckedChange={(checked) => handleSelectAllInStage(stage, Boolean(checked))}
-                        className="transition-colors flex-shrink-0"
+                        className="transition-colors flex-shrink-0 h-3 w-3"
                       />
                     )}
-                    <h3 className="font-semibold text-base truncate">{stage}</h3>
+                    <h3 className="font-semibold text-sm truncate">{stage}</h3>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-sm font-medium whitespace-nowrap">
+                    <span className="text-xs font-medium whitespace-nowrap">
                       {stageDeals.length}
                       {selectionMode && selectedInStage > 0 && (
                         <span className="text-primary ml-1">({selectedInStage})</span>
@@ -269,9 +335,9 @@ export const KanbanBoard = ({
                         size="sm"
                         variant="ghost"
                         onClick={() => onCreateDeal(stage)}
-                        className="hover-scale flex-shrink-0 p-1 h-7 w-7"
+                        className="hover-scale flex-shrink-0 p-1 h-6 w-6"
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="w-3 h-3" />
                       </Button>
                     )}
                   </div>
@@ -282,8 +348,8 @@ export const KanbanBoard = ({
         </div>
       </div>
 
-      {/* Scrollable content area */}
-      <div className="flex-1 min-h-0 overflow-hidden px-4 pb-3">
+      {/* Scrollable content area - Takes remaining height */}
+      <div className="flex-1 min-h-0 overflow-hidden px-3 pb-2">
         <style>
           {`
             .deals-scrollbar::-webkit-scrollbar {
@@ -304,9 +370,9 @@ export const KanbanBoard = ({
         </style>
         <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
           <div 
-            className="grid gap-3 h-full overflow-x-auto deals-scrollbar"
+            className="grid gap-2 h-full overflow-x-auto deals-scrollbar"
             style={{ 
-              gridTemplateColumns: `repeat(${visibleStages.length}, minmax(280px, 1fr))`,
+              gridTemplateColumns: `repeat(${visibleStages.length}, minmax(240px, 1fr))`,
               scrollbarWidth: 'thin',
               scrollbarColor: 'hsl(var(--border)) transparent'
             }}
@@ -321,7 +387,7 @@ export const KanbanBoard = ({
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`flex-1 space-y-2 p-2 rounded-lg transition-all min-h-0 overflow-y-auto deals-scrollbar ${
+                        className={`flex-1 space-y-1.5 p-1.5 rounded-lg transition-all min-h-0 overflow-y-auto deals-scrollbar ${
                           snapshot.isDraggingOver ? 'bg-muted/50 shadow-inner' : ''
                         }`}
                         style={{ 
@@ -344,11 +410,11 @@ export const KanbanBoard = ({
                                 className="relative group"
                               >
                                 {selectionMode && (
-                                  <div className="absolute top-2 left-2 z-10">
+                                  <div className="absolute top-1.5 left-1.5 z-10">
                                     <Checkbox
                                       checked={selectedDeals.has(deal.id)}
                                       onCheckedChange={(checked) => handleSelectDeal(deal.id, Boolean(checked))}
-                                      className="bg-background border-2 transition-colors"
+                                      className="bg-background border-2 transition-colors h-3 w-3"
                                       onClick={(e) => e.stopPropagation()}
                                     />
                                   </div>
@@ -389,6 +455,7 @@ export const KanbanBoard = ({
         </DragDropContext>
       </div>
 
+      {/* Fixed bottom bulk actions */}
       <div className="flex-shrink-0">
         <BulkActionsBar
           selectedCount={selectedDeals.size}

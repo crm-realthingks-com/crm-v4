@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +18,7 @@ interface Contact {
   email?: string;
   phone_no?: string;
   mobile_no?: string;
-  country?: string;
+  region?: string; // Changed from country to region
   city?: string;
   state?: string;
   contact_owner?: string;
@@ -41,7 +42,7 @@ const defaultColumns: ContactColumnConfig[] = [
   { field: 'position', label: 'Position', visible: true, order: 2 },
   { field: 'email', label: 'Email', visible: true, order: 3 },
   { field: 'phone_no', label: 'Phone', visible: true, order: 4 },
-  { field: 'country', label: 'Region', visible: true, order: 5 },
+  { field: 'region', label: 'Region', visible: true, order: 5 }, // Changed from country to region
   { field: 'contact_owner', label: 'Contact Owner', visible: true, order: 6 },
 ];
 
@@ -75,7 +76,9 @@ export const ContactTable = ({
   const [contactToDelete, setContactToDelete] = useState<string | null>(null);
   const [columns, setColumns] = useState(defaultColumns);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(50); // Default 50 contacts per page
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   console.log('ContactTable: Rendering with contacts:', contacts.length);
 
@@ -124,18 +127,49 @@ export const ContactTable = ({
     }
   }, [refreshTrigger]);
 
-  // Filter contacts based on search
+  // Filter and sort contacts
   useEffect(() => {
     console.log('ContactTable: Filtering contacts, search term:', searchTerm);
-    const filtered = contacts.filter(contact =>
+    let filtered = contacts.filter(contact =>
       contact.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.email?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Apply sorting
+    if (sortField) {
+      filtered.sort((a, b) => {
+        const aValue = a[sortField as keyof Contact] || '';
+        const bValue = b[sortField as keyof Contact] || '';
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
+          return sortDirection === 'asc' ? comparison : -comparison;
+        }
+        
+        // For non-string values, convert to string for comparison
+        const aStr = String(aValue).toLowerCase();
+        const bStr = String(bValue).toLowerCase();
+        const comparison = aStr.localeCompare(bStr);
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+    }
+
     setFilteredContacts(filtered);
     setCurrentPage(1);
     console.log('ContactTable: Filtered contacts:', filtered.length);
-  }, [contacts, searchTerm]);
+  }, [contacts, searchTerm, sortField, sortDirection]);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, start with ascending
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -194,6 +228,9 @@ export const ContactTable = ({
         selectedContacts={selectedContacts}
         setSelectedContacts={setSelectedContacts}
         pageContacts={pageContacts}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSort={handleSort}
       />
 
       <Card>
@@ -210,6 +247,9 @@ export const ContactTable = ({
           }}
           searchTerm={searchTerm}
           onRefresh={fetchContacts}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSort={handleSort}
         />
       </Card>
 

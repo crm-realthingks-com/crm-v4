@@ -413,7 +413,7 @@ export const LeadModal = ({ open, onOpenChange, lead, onSuccess }: LeadModalProp
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
+                          <SelectValue placeholder="New" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>

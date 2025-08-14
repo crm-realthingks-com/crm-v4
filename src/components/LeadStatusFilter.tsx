@@ -8,9 +8,9 @@ interface LeadStatusFilterProps {
 
 export const LeadStatusFilter = ({ value, onValueChange }: LeadStatusFilterProps) => {
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select value={value || "New"} onValueChange={onValueChange}>
       <SelectTrigger className="w-40">
-        <SelectValue placeholder="All Statuses" />
+        <SelectValue placeholder="New" />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="all">All Statuses</SelectItem>

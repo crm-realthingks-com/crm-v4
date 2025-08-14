@@ -27,8 +27,7 @@ interface CreateContactData {
   website?: string;
   contact_source?: string;
   industry?: string;
-  city?: string;
-  country?: string;
+  region?: string; // Changed from country to region
   description?: string;
   contact_owner?: string;
 }

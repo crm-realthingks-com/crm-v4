@@ -52,27 +52,12 @@ export class CSVProcessor {
         throw new Error('No data rows found in CSV file');
       }
 
-      // Validate headers
-      await this.validateHeaders(headers, options.tableName);
-
       const mappedHeaders = headers.map(header => ({
         original: header,
         mapped: this.mapHeader(header)
       }));
 
       console.log('Mapped headers:', mappedHeaders);
-
-      const validHeaders = mappedHeaders.filter(h => h.mapped !== null);
-      const invalidHeaders = mappedHeaders.filter(h => h.mapped === null);
-      
-      console.log('Valid headers:', validHeaders);
-      console.log('Invalid headers:', invalidHeaders);
-      
-      if (validHeaders.length === 0) {
-        throw new Error('No valid headers found. Please ensure CSV headers match the expected field names.');
-      }
-      
-      this.handleInvalidHeaders(invalidHeaders);
 
       return await this.processRows(dataRows, mappedHeaders, options);
     } catch (error) {
@@ -81,44 +66,6 @@ export class CSVProcessor {
     }
   }
 
-  private async validateHeaders(headers: string[], tableName: string) {
-    console.log('Validating headers for table:', tableName);
-    
-    if (tableName === 'contacts' || tableName === 'contacts_module') {
-      const hasRequiredHeaders = headers.some(h => {
-        const mapped = this.mapHeader(h);
-        console.log(`Header "${h}" maps to "${mapped}"`);
-        return mapped === 'contact_name';
-      });
-      
-      console.log('Has required contact_name header:', hasRequiredHeaders);
-      
-      if (!hasRequiredHeaders) {
-        throw new Error('Missing required header: contact_name is required for contacts import. Please check your CSV headers.');
-      }
-    } else if (tableName === 'deals') {
-      const hasRequiredHeaders = headers.some(h => this.mapHeader(h) === 'deal_name') && 
-                                 headers.some(h => this.mapHeader(h) === 'stage');
-      if (!hasRequiredHeaders) {
-        throw new Error('Missing required headers: deal_name and stage are required for deals import. Please check your CSV headers.');
-      }
-    }
-  }
-
-  private handleInvalidHeaders(invalidHeaders: any[]) {
-    if (invalidHeaders.length > 0) {
-      const systemFields = ['created_at', 'modified_at', 'created_by', 'modified_by'];
-      const otherIgnored = invalidHeaders.filter(h => !systemFields.includes(h.original.toLowerCase()));
-      
-      if (otherIgnored.length > 0) {
-        console.warn('Ignoring unrecognized columns:', otherIgnored.map(h => h.original));
-        toast({
-          title: "Column Info",
-          description: `Ignoring ${otherIgnored.length} unrecognized column(s). Import will continue with recognized fields.`,
-        });
-      }
-    }
-  }
 
   private async processRows(dataRows: string[][], mappedHeaders: any[], options: ProcessOptions) {
     console.log('Processing rows:', dataRows.length);
@@ -143,24 +90,15 @@ export class CSVProcessor {
 
         console.log(`Row ${i + 1}: Mapped record:`, record);
 
-        const result = await this.processRecord(record, i, options);
+        const result = await this.insertRecord(record, i, options);
         
         console.log(`Row ${i + 1}: Processing result:`, result);
         
-        switch (result.type) {
-          case 'success':
-            successCount++;
-            break;
-          case 'update':
-            updateCount++;
-            break;
-          case 'duplicate':
-            duplicateCount++;
-            break;
-          case 'error':
-            errorCount++;
-            errors.push(result.error!);
-            break;
+        if (result.type === 'success') {
+          successCount++;
+        } else {
+          errorCount++;
+          errors.push(result.error!);
         }
 
         if (options.onProgress) {
@@ -208,95 +146,22 @@ export class CSVProcessor {
     return hasValidData ? record : null;
   }
 
-  private async processRecord(record: any, rowIndex: number, options: ProcessOptions): Promise<ProcessResult> {
-    // Set required defaults and validate based on table type
-    const validationResult = this.validateRecord(record, rowIndex, options);
-    if (validationResult.type === 'error') {
-      return validationResult;
-    }
-
-    // Check for duplicates
-    const isDuplicate = await this.checkDuplicate(record);
-    if (isDuplicate) {
-      return await this.handleDuplicate(record, rowIndex, options);
-    }
-
-    // Insert new record
-    return await this.insertRecord(record, rowIndex, options);
-  }
-
-  private validateRecord(record: any, rowIndex: number, options: ProcessOptions): ProcessResult {
-    if (options.tableName === 'deals') {
-      return this.validateDealRecord(record, rowIndex);
-    } else {
-      return this.validateOtherRecord(record, rowIndex, options);
-    }
-  }
-
-  private validateDealRecord(record: any, rowIndex: number): ProcessResult {
-    // Ensure required fields have values
-    if (!record.deal_name && record.project_name) {
-      record.deal_name = record.project_name;
-      console.log(`Row ${rowIndex + 1}: Using project_name as deal_name: ${record.deal_name}`);
-    }
-    if (!record.deal_name) {
-      return {
-        type: 'error',
-        error: `Row ${rowIndex + 1}: Missing deal_name - this field is required`
-      };
-    }
-    if (!record.stage) {
-      record.stage = 'Lead';
-      console.log(`Row ${rowIndex + 1}: Setting default stage to 'Lead'`);
-    }
-    
-    const isValid = this.validateImportRecord(record);
-    if (!isValid) {
-      return {
-        type: 'error',
-        error: `Row ${rowIndex + 1}: Invalid deal data for "${record.deal_name}" - check deal_name and stage values`
-      };
-    }
-
-    return { type: 'success' };
-  }
-
-  private validateOtherRecord(record: any, rowIndex: number, options: ProcessOptions): ProcessResult {
-    console.log(`Row ${rowIndex + 1}: Validating record:`, record);
-    
-    // For contacts, ensure we have at least contact_name
-    if (options.tableName === 'contacts' || options.tableName === 'contacts_module') {
-      if (!record.contact_name || String(record.contact_name).trim() === '') {
-        record.contact_name = `Contact ${rowIndex + 1}`;
-        console.log(`Row ${rowIndex + 1}: Set default contact_name: ${record.contact_name}`);
-      }
-    }
-
-    // Set user information for all records
-    record.created_by = options.userId;
-    record.modified_by = options.userId;
-    
-    // Set contact_owner to the current user if not provided
-    if ((options.tableName === 'contacts' || options.tableName === 'contacts_module') && !record.contact_owner) {
-      record.contact_owner = options.userId;
-      console.log(`Row ${rowIndex + 1}: Set contact_owner to current user: ${options.userId}`);
-    }
-
-    console.log(`Row ${rowIndex + 1}: Final validated record:`, record);
-    return { type: 'success' };
-  }
-
-  private async handleDuplicate(record: any, rowIndex: number, options: ProcessOptions): Promise<ProcessResult> {
-    console.log(`Found duplicate record ${rowIndex + 1}: ${record.deal_name || record.contact_name || 'Unknown'}, skipping...`);
-    return { type: 'duplicate' };
-  }
 
   private async insertRecord(record: any, rowIndex: number, options: ProcessOptions): Promise<ProcessResult> {
     try {
-      // Set timestamps for new records
+      // Set user information and timestamps
+      record.created_by = options.userId;
+      record.modified_by = options.userId;
+      
+      // Set correct timestamp column names based on table
       const now = new Date().toISOString();
-      record.created_time = now;
-      record.modified_time = now;
+      if (options.tableName === 'deals') {
+        record.created_at = now;
+        record.modified_at = now;
+      } else {
+        record.created_time = now;
+        record.modified_time = now;
+      }
 
       console.log(`Row ${rowIndex + 1}: Inserting new record:`, record);
       

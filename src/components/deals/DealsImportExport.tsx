@@ -2,22 +2,8 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Upload, Download } from "lucide-react";
-import { useImportExport } from "@/hooks/useImportExport";
-import { getExportFilename } from "@/utils/exportUtils";
-
-interface Deal {
-  id: string;
-  name: string;
-  stage: string;
-  value: number;
-  company: string;
-  contact: string;
-  probability: number;
-  expectedCloseDate: string;
-  owner: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { useDealsImportExport } from "@/hooks/useDealsImportExport";
+import { Deal } from "@/types/deal";
 
 interface DealsImportExportProps {
   deals: Deal[];
@@ -25,10 +11,8 @@ interface DealsImportExportProps {
 }
 
 const DealsImportExport = ({ deals, onImportComplete }: DealsImportExportProps) => {
-  const { handleImport, handleExportAll } = useImportExport({
-    moduleName: 'deals',
-    onRefresh: () => console.log('Refreshing deals data'),
-    tableName: 'deals'
+  const { handleImport, handleExportAll } = useDealsImportExport({
+    onRefresh: () => console.log('Refreshing deals data')
   });
 
   const exportDeals = () => {

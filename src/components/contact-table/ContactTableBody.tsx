@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Edit, Trash2, ArrowUpDown, MoreHorizontal, UserPlus } from "lucide-react";
+import { Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, UserPlus } from "lucide-react";
 import { useUserDisplayNames } from "@/hooks/useUserDisplayNames";
 import { ContactColumnConfig } from "../ContactColumnCustomizer";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,10 +16,17 @@ interface Contact {
   position?: string;
   email?: string;
   phone_no?: string;
-  country?: string;
+  region?: string;
   contact_owner?: string;
   lead_status?: string;
   created_by?: string;
+  linkedin?: string;
+  website?: string;
+  contact_source?: string;
+  industry?: string;
+  description?: string;
+  mobile_no?: string;
+  city?: string;
   [key: string]: any;
 }
 
@@ -33,6 +40,9 @@ interface ContactTableBodyProps {
   onDelete: (id: string) => void;
   searchTerm: string;
   onRefresh?: () => void;
+  sortField: string | null;
+  sortDirection: 'asc' | 'desc';
+  onSort: (field: string) => void;
 }
 
 export const ContactTableBody = ({
@@ -44,7 +54,10 @@ export const ContactTableBody = ({
   onEdit,
   onDelete,
   searchTerm,
-  onRefresh
+  onRefresh,
+  sortField,
+  sortDirection,
+  onSort
 }: ContactTableBodyProps) => {
   const { toast } = useToast();
   
@@ -74,33 +87,52 @@ export const ContactTableBody = ({
 
   const handleConvertToLead = async (contact: Contact) => {
     try {
+      console.log('Converting contact to lead:', contact);
+      
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
       // Create a new lead with contact information
-      const leadData = {
+      // Only include fields that have values to avoid insertion errors
+      const leadData: any = {
         lead_name: contact.contact_name,
-        company_name: contact.company_name,
-        position: contact.position,
-        email: contact.email,
-        phone_no: contact.phone_no,
-        mobile_no: contact.mobile_no,
-        linkedin: contact.linkedin,
-        website: contact.website,
-        contact_source: contact.contact_source,
-        lead_status: contact.lead_status || 'New',
-        industry: contact.industry,
-        city: contact.city,
-        country: contact.country,
-        description: contact.description,
-        contact_owner: contact.contact_owner,
-        created_by: contact.created_by,
+        created_by: user.id,
         created_time: new Date().toISOString(),
         modified_time: new Date().toISOString()
       };
 
-      const { error } = await supabase
-        .from('leads')
-        .insert([leadData]);
+      // Add optional fields only if they have values
+      if (contact.company_name) leadData.company_name = contact.company_name;
+      if (contact.position) leadData.position = contact.position;
+      if (contact.email) leadData.email = contact.email;
+      if (contact.phone_no) leadData.phone_no = contact.phone_no;
+      if (contact.linkedin) leadData.linkedin = contact.linkedin;
+      if (contact.website) leadData.website = contact.website;
+      if (contact.contact_source) leadData.contact_source = contact.contact_source;
+      if (contact.lead_status) leadData.lead_status = contact.lead_status;
+      if (contact.industry) leadData.industry = contact.industry;
+      if (contact.region) leadData.country = contact.region; // Map region to country for leads table
+      if (contact.description) leadData.description = contact.description;
+      if (contact.contact_owner) leadData.contact_owner = contact.contact_owner;
 
-      if (error) throw error;
+      console.log('Lead data to insert:', leadData);
+
+      const { data: insertedLead, error } = await supabase
+        .from('leads')
+        .insert([leadData])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error inserting lead:', error);
+        throw error;
+      }
+
+      console.log('Lead created successfully:', insertedLead);
 
       toast({
         title: "Success",
@@ -114,10 +146,15 @@ export const ContactTableBody = ({
       console.error('Error converting contact to lead:', error);
       toast({
         title: "Error",
-        description: "Failed to convert contact to lead. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to convert contact to lead. Please try again.",
         variant: "destructive",
       });
     }
+  };
+
+  const getSortIcon = (field: string) => {
+    if (sortField !== field) return <ArrowUpDown className="w-4 h-4" />;
+    return sortDirection === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />;
   };
 
   if (loading) {
@@ -170,10 +207,16 @@ export const ContactTableBody = ({
           </TableHead>
           {visibleColumns.map((column) => (
             <TableHead key={column.field}>
-              <div className="flex items-center gap-2">
-                {column.label}
-                <ArrowUpDown className="w-4 h-4" />
-              </div>
+              <Button
+                variant="ghost"
+                className="h-auto p-0 font-medium hover:bg-transparent"
+                onClick={() => onSort(column.field)}
+              >
+                <div className="flex items-center gap-2">
+                  {column.label}
+                  {getSortIcon(column.field)}
+                </div>
+              </Button>
             </TableHead>
           ))}
           <TableHead>Actions</TableHead>
@@ -221,33 +264,35 @@ export const ContactTableBody = ({
               </TableCell>
             ))}
             <TableCell>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onEdit(contact)}>
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleConvertToLead(contact)}>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Convert to Lead
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => onDelete(contact.id)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEdit(contact)}
+                  className="h-8 w-8 p-0 hover:bg-muted"
+                  title="Edit contact"
+                >
+                  <Edit className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleConvertToLead(contact)}
+                  className="h-8 w-8 p-0 hover:bg-muted"
+                  title="Convert to lead"
+                >
+                  <UserPlus className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDelete(contact.id)}
+                  className="h-8 w-8 p-0 hover:bg-destructive/10 text-destructive hover:text-destructive"
+                  title="Delete contact"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
             </TableCell>
           </TableRow>
         ))}

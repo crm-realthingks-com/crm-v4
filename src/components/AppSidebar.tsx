@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -26,12 +26,22 @@ const menuItems = [
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
-export function AppSidebar() {
-  const [isPinned, setIsPinned] = useState(false);
+interface AppSidebarProps {
+  isFixed?: boolean;
+  isOpen?: boolean;
+  onToggle?: (open: boolean) => void;
+}
+
+export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProps) {
+  const [isPinned, setIsPinned] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const currentPath = location.pathname;
+
+  // Use external state if provided (for fixed mode), otherwise use internal state
+  const sidebarOpen = isFixed ? (isOpen ?? true) : isPinned;
+  const setSidebarOpen = isFixed ? (onToggle || (() => {})) : setIsPinned;
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -54,16 +64,22 @@ export function AppSidebar() {
   };
 
   const togglePin = () => {
-    setIsPinned(!isPinned);
+    if (isFixed) {
+      onToggle?.(!sidebarOpen);
+    } else {
+      setIsPinned(!isPinned);
+    }
   };
 
   return (
     <div 
-      className="h-screen flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ease-in-out"
+      className={`h-screen flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ease-in-out ${
+        isFixed ? 'relative' : ''
+      }`}
       style={{ 
-        width: isPinned ? '220px' : '60px',
-        minWidth: isPinned ? '220px' : '60px',
-        maxWidth: isPinned ? '220px' : '60px'
+        width: sidebarOpen ? '220px' : '60px',
+        minWidth: sidebarOpen ? '220px' : '60px',
+        maxWidth: sidebarOpen ? '220px' : '60px'
       }}
     >
       {/* Header */}
@@ -74,7 +90,7 @@ export function AppSidebar() {
             alt="Logo" 
             className="w-8 h-8 flex-shrink-0 object-contain"
           />
-          {isPinned && (
+          {sidebarOpen && (
             <span className="ml-3 text-gray-800 font-semibold text-lg whitespace-nowrap opacity-100 transition-opacity duration-300" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
               RealThingks
             </span>
@@ -98,8 +114,8 @@ export function AppSidebar() {
                   }
                 `}
                 style={{ 
-                  paddingLeft: isPinned ? '16px' : '0px',
-                  paddingRight: isPinned ? '16px' : '0px',
+                  paddingLeft: sidebarOpen ? '16px' : '0px',
+                  paddingRight: sidebarOpen ? '16px' : '0px',
                   paddingTop: '10px',
                   paddingBottom: '10px',
                   minHeight: '44px',
@@ -111,7 +127,7 @@ export function AppSidebar() {
                 <div 
                   className="flex items-center justify-center"
                   style={{ 
-                    width: isPinned ? '20px' : '60px',
+                    width: sidebarOpen ? '20px' : '60px',
                     height: '20px',
                     minWidth: '20px',
                     minHeight: '20px'
@@ -125,7 +141,7 @@ export function AppSidebar() {
                     }} 
                   />
                 </div>
-                {isPinned && (
+                {sidebarOpen && (
                   <span 
                     className="ml-3 opacity-100 transition-opacity duration-300"
                   >
@@ -135,7 +151,7 @@ export function AppSidebar() {
               </NavLink>
             );
 
-            if (!isPinned) {
+            if (!sidebarOpen) {
               return (
                 <Tooltip key={item.title}>
                   <TooltipTrigger asChild>
@@ -160,28 +176,28 @@ export function AppSidebar() {
       {/* Bottom Section - Pin Toggle & User & Sign Out */}
       <div className="border-t border-gray-300 p-4 space-y-3 relative">
         {/* Pin Toggle Button - Always bottom-left aligned */}
-        <div className="flex" style={{ justifyContent: isPinned ? 'flex-start' : 'flex-start', paddingLeft: isPinned ? '0px' : '6px' }}>
+        <div className="flex" style={{ justifyContent: sidebarOpen ? 'flex-start' : 'flex-start', paddingLeft: sidebarOpen ? '0px' : '6px' }}>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={togglePin}
                 className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
-                  isPinned 
+                  sidebarOpen 
                     ? 'text-blue-700 bg-blue-100 hover:bg-blue-200' 
                     : 'text-gray-500 hover:text-blue-700 hover:bg-blue-50'
                 }`}
               >
-                {isPinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
+                {sidebarOpen ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
               </button>
             </TooltipTrigger>
-            <TooltipContent side={isPinned ? "bottom" : "right"}>
-              <p>{isPinned ? 'Unpin sidebar' : 'Pin sidebar'}</p>
+            <TooltipContent side={sidebarOpen ? "bottom" : "right"}>
+              <p>{sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}</p>
             </TooltipContent>
           </Tooltip>
         </div>
 
         {/* User & Sign Out */}
-        {!isPinned ? (
+        {!sidebarOpen ? (
           <div className="flex justify-center">
             <Tooltip>
               <TooltipTrigger asChild>

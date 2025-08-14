@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
@@ -20,7 +20,6 @@ export type Database = {
           contact_name: string
           contact_owner: string | null
           contact_source: string | null
-          country: string | null
           created_by: string | null
           created_time: string | null
           description: string | null
@@ -32,6 +31,7 @@ export type Database = {
           modified_time: string | null
           phone_no: string | null
           position: string | null
+          region: string | null
           website: string | null
         }
         Insert: {
@@ -39,7 +39,6 @@ export type Database = {
           contact_name: string
           contact_owner?: string | null
           contact_source?: string | null
-          country?: string | null
           created_by?: string | null
           created_time?: string | null
           description?: string | null
@@ -51,6 +50,7 @@ export type Database = {
           modified_time?: string | null
           phone_no?: string | null
           position?: string | null
+          region?: string | null
           website?: string | null
         }
         Update: {
@@ -58,7 +58,6 @@ export type Database = {
           contact_name?: string
           contact_owner?: string | null
           contact_source?: string | null
-          country?: string | null
           created_by?: string | null
           created_time?: string | null
           description?: string | null
@@ -70,6 +69,7 @@ export type Database = {
           modified_time?: string | null
           phone_no?: string | null
           position?: string | null
+          region?: string | null
           website?: string | null
         }
         Relationships: []
@@ -636,18 +636,18 @@ export type Database = {
       }
       log_data_access: {
         Args: {
-          p_table_name: string
           p_operation: string
           p_record_id?: string
+          p_table_name: string
         }
         Returns: undefined
       }
       log_security_event: {
         Args: {
           p_action: string
-          p_resource_type: string
-          p_resource_id?: string
           p_details?: Json
+          p_resource_id?: string
+          p_resource_type: string
         }
         Returns: undefined
       }

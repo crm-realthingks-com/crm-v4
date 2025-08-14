@@ -82,7 +82,7 @@ export const LeadTable = ({
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("New");
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
@@ -320,7 +320,6 @@ export const LeadTable = ({
                     className="ml-2"
                   >
                     <RefreshCw className="w-4 h-4 mr-1" />
-                    Convert to Deal
                   </Button>
                 </div>
               </TableHead>

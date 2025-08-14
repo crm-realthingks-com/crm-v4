@@ -1,4 +1,3 @@
-
 export type DealStage = 'Lead' | 'Discussions' | 'Qualified' | 'RFQ' | 'Offered' | 'Won' | 'Lost' | 'Dropped';
 
 export interface Deal {

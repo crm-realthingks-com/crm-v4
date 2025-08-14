@@ -8,10 +8,8 @@ import { KanbanBoard } from "@/components/KanbanBoard";
 import { ListView } from "@/components/ListView";
 import { DealForm } from "@/components/DealForm";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ImportExportBar } from "@/components/ImportExportBar";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, BarChart3, Users, Euro } from "lucide-react";
+import { Plus } from "lucide-react";
 
 const DealsPage = () => {
   const { user, loading: authLoading } = useAuth();
@@ -24,7 +22,7 @@ const DealsPage = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [initialStage, setInitialStage] = useState<DealStage>('Lead');
-  const [activeView, setActiveView] = useState<'kanban' | 'list'>('kanban');
+  const [activeView, setActiveView] = useState<'kanban' | 'list'>('list');
 
   const fetchDeals = async () => {
     try {
@@ -216,14 +214,6 @@ const DealsPage = () => {
     setIsCreating(false);
   };
 
-  const getStats = () => {
-    const totalDeals = deals.length;
-    const totalValue = deals.reduce((sum, deal) => sum + (deal.total_contract_value || 0), 0);
-    const wonDeals = deals.filter(deal => deal.stage === 'Won').length;
-    
-    return { totalDeals, totalValue, wonDeals };
-  };
-
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
@@ -238,7 +228,7 @@ const DealsPage = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading...</p>
@@ -251,27 +241,16 @@ const DealsPage = () => {
     return null;
   }
 
-  const stats = getStats();
-
   return (
-    <div className="w-full h-screen overflow-hidden bg-background">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Fixed Header */}
-      <div className="w-full bg-background border-b">
-        <div className="w-full px-4 py-4">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6">
+      <div className="flex-shrink-0 bg-background border-b">
+        <div className="px-6 py-4">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">Deals Pipeline</h1>
+              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Deals Pipeline</h1>
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-shrink-0">
-              <div className="hidden sm:block">
-                <ImportExportBar
-                  deals={deals}
-                  onImport={handleImportDeals}
-                  onExport={() => {}}
-                  selectedDeals={[]}
-                  onRefresh={fetchDeals}
-                />
-              </div>
               <div className="bg-muted rounded-lg p-1 flex">
                 <Button
                   variant={activeView === 'kanban' ? 'default' : 'ghost'}
@@ -299,12 +278,11 @@ const DealsPage = () => {
               </Button>
             </div>
           </div>
-
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="w-full" style={{ height: 'calc(100vh - 250px)' }}>
+      {/* Main Content Area - Takes remaining height */}
+      <div className="flex-1 min-h-0 overflow-hidden">
         {activeView === 'kanban' ? (
           <KanbanBoard
             deals={deals}
@@ -316,15 +294,13 @@ const DealsPage = () => {
             onRefresh={fetchDeals}
           />
         ) : (
-          <div className="h-full overflow-y-auto p-4">
-            <ListView
-              deals={deals}
-              onDealClick={handleDealClick}
-              onUpdateDeal={handleUpdateDeal}
-              onDeleteDeals={handleDeleteDeals}
-              onImportDeals={handleImportDeals}
-            />
-          </div>
+          <ListView
+            deals={deals}
+            onDealClick={handleDealClick}
+            onUpdateDeal={handleUpdateDeal}
+            onDeleteDeals={handleDeleteDeals}
+            onImportDeals={handleImportDeals}
+          />
         )}
       </div>
 

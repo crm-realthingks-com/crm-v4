@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Upload, Download, FileSpreadsheet } from "lucide-react";
 import { Deal } from "@/types/deal";
 import { useToast } from "@/hooks/use-toast";
-import { useImportExport } from "@/hooks/useImportExport";
+import { useDealsImportExport } from "@/hooks/useDealsImportExport";
 
 type ImportedDeal = Partial<Deal> & { shouldUpdate?: boolean };
 
@@ -25,11 +25,9 @@ export const ImportExportBar = ({ deals, onImport, onExport, selectedDeals, onRe
   const [importFile, setImportFile] = useState<File | null>(null);
   const { toast } = useToast();
   
-  // Use the centralized import/export logic
-  const { handleImport, handleExportAll, handleExportSelected } = useImportExport({
-    moduleName: 'deals',
-    onRefresh,
-    tableName: 'deals'
+  // Use the simplified deals import/export logic
+  const { handleImport, handleExportAll, handleExportSelected } = useDealsImportExport({
+    onRefresh
   });
 
   const generateFileName = (prefix: string) => {
@@ -53,11 +51,8 @@ export const ImportExportBar = ({ deals, onImport, onExport, selectedDeals, onRe
 
     console.log('Starting export with deals:', dealsToExport.length);
 
-    // Include ID field for proper duplicate detection on re-import
+    // Updated export fields list after database cleanup - removed all unused fields
     const exportFields = [
-      // System fields (include ID for duplicate detection)
-      'id',
-      
       // Basic deal info (all stages)
       'deal_name',
       'stage',
