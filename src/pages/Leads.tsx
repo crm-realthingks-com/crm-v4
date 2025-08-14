@@ -1,15 +1,29 @@
+
 import { LeadTable } from "@/components/LeadTable";
 import { Button } from "@/components/ui/button";
-import { Settings, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Settings, Plus, Trash2, ChevronDown, Upload, Download } from "lucide-react";
+import { useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useSimpleLeadsImportExport } from "@/hooks/useSimpleLeadsImportExport";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Leads = () => {
   const { toast } = useToast();
   const [showColumnCustomizer, setShowColumnCustomizer] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { handleImport, handleExport, isImporting } = useSimpleLeadsImportExport(() => {
+    setRefreshTrigger(prev => prev + 1);
+  });
 
   const handleBulkDelete = async () => {
     if (selectedLeads.length === 0) return;
@@ -28,12 +42,30 @@ const Leads = () => {
       });
       
       setSelectedLeads([]);
+      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to delete leads",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === 'text/csv') {
+      handleImport(file);
+    } else {
+      toast({
+        title: "Error",
+        description: "Please select a valid CSV file",
+        variant: "destructive",
+      });
+    }
+    // Reset the input value so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -62,12 +94,48 @@ const Leads = () => {
             </Button>
           )}
 
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                Actions
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
+                <Upload className="w-4 h-4 mr-2" />
+                {isImporting ? 'Importing...' : 'Import CSV'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExport}>
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={handleBulkDelete}
+                disabled={selectedLeads.length === 0}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Selected ({selectedLeads.length})
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button onClick={() => setShowModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Add Lead
           </Button>
         </div>
       </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv"
+        onChange={handleFileSelect}
+        style={{ display: 'none' }}
+      />
 
       {/* Lead Table */}
       <LeadTable 
@@ -77,6 +145,7 @@ const Leads = () => {
         setShowModal={setShowModal}
         selectedLeads={selectedLeads}
         setSelectedLeads={setSelectedLeads}
+        key={refreshTrigger}
       />
     </div>
   );
