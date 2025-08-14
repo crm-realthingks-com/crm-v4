@@ -115,7 +115,7 @@ const YearlyRevenueSummary = () => {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Revenue Analytics</h2>
-            <p className="text-muted-foreground">Real-time revenue tracking and forecasting</p>
+            <p className="text-muted-foreground"> </p>
           </div>
           <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
             <SelectTrigger className="w-32">
