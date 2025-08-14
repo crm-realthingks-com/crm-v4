@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -27,12 +26,12 @@ const FixedSidebarLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="min-h-screen flex w-full">
       <div className="fixed top-0 left-0 h-full z-50">
-        <AppSidebar isFixed={true} isOpen={sidebarOpen} onToggle={setSidebarOpen} />
+        <AppSidebar isFixed={true} />
       </div>
       <main 
         className="flex-1 bg-background transition-all duration-300 ease-in-out"
         style={{ 
-          marginLeft: sidebarOpen ? '220px' : '60px'
+          marginLeft: '220px' // Default expanded width, AppSidebar handles its own state
         }}
       >
         {children}
