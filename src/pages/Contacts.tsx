@@ -198,7 +198,7 @@ const Contacts = () => {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExportContacts}>
                 <Download className="w-4 h-4 mr-2" />
-                Export All
+                Export
               </DropdownMenuItem>
               {selectedContacts.length > 0 && (
                 <DropdownMenuItem 
