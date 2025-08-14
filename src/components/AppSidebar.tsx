@@ -62,7 +62,7 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
     return user?.user_metadata?.full_name || user?.email || 'User';
   };
 
-  // Only toggle on Pin button click
+  // Only toggle on Pin button click - removed auto-toggle behavior
   const togglePin = () => {
     if (isFixed) {
       onToggle?.(!sidebarOpen);
@@ -71,9 +71,10 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
     }
   };
 
-  // Menu item click will not affect sidebar state
+  // Handle menu item click without auto-toggling sidebar
   const handleMenuItemClick = (url: string) => {
     navigate(url);
+    // Removed auto-collapse behavior - sidebar state remains unchanged
   };
 
   return (
@@ -180,7 +181,7 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
 
       {/* Bottom Section - Pin Toggle & User & Sign Out */}
       <div className="border-t border-gray-300 p-4 space-y-3 relative">
-        {/* Pin Toggle Button */}
+        {/* Pin Toggle Button - Always bottom-left aligned */}
         <div className="flex" style={{ justifyContent: sidebarOpen ? 'flex-start' : 'flex-start', paddingLeft: sidebarOpen ? '0px' : '6px' }}>
           <Tooltip>
             <TooltipTrigger asChild>
