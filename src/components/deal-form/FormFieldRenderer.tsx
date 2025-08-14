@@ -23,33 +23,26 @@ interface FormFieldRendererProps {
 }
 
 export const FormFieldRenderer = ({ field, value, onChange, onLeadSelect, error }: FormFieldRendererProps) => {
-  const [leadOwnerIds, setLeadOwnerIds] = useState<string[]>([]);
-  const { displayNames } = useUserDisplayNames(leadOwnerIds);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  
+  // Get display names for all users
+  const allUserIds = allUsers.map(u => u.id);
+  const { displayNames } = useUserDisplayNames(allUserIds);
 
   useEffect(() => {
     if (field === 'lead_owner') {
-      fetchLeadOwners();
+      fetchAllUsers();
     }
   }, [field]);
 
-  const fetchLeadOwners = async () => {
+  const fetchAllUsers = async () => {
     try {
-      // Fetch all unique lead owners (created_by) from leads table
-      const { data: leads, error } = await supabase
-        .from('leads')
-        .select('created_by')
-        .not('created_by', 'is', null);
-
-      if (error) {
-        console.error('Error fetching lead owners:', error);
-        return;
+      const { data: authData, error: authError } = await supabase.functions.invoke('admin-list-users');
+      if (!authError && authData?.users) {
+        setAllUsers(authData.users);
       }
-
-      // Get unique user IDs
-      const uniqueUserIds = Array.from(new Set(leads.map(lead => lead.created_by).filter(Boolean)));
-      setLeadOwnerIds(uniqueUserIds);
     } catch (error) {
-      console.error('Error in fetchLeadOwners:', error);
+      console.error('Error fetching all users:', error);
     }
   };
 
@@ -154,25 +147,10 @@ export const FormFieldRenderer = ({ field, value, onChange, onLeadSelect, error 
 
     // Get lead owner display name if available
     if (lead.created_by) {
-      const fetchLeadOwner = async () => {
-        try {
-          const { data, error } = await supabase.functions.invoke('admin-list-users');
-          if (!error && data?.users) {
-            const user = data.users.find((u: any) => u.id === lead.created_by);
-            if (user) {
-              onChange('lead_owner', user.user_metadata?.display_name || "Unknown");
-              return;
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching user display name:", error);
-        }
-        
-        // Fallback if user fetch fails
-        onChange('lead_owner', "Unknown");
-      };
-      
-      fetchLeadOwner();
+      const displayName = displayNames[lead.created_by];
+      if (displayName) {
+        onChange('lead_owner', displayName);
+      }
     }
 
     if (onLeadSelect) {
@@ -210,7 +188,7 @@ export const FormFieldRenderer = ({ field, value, onChange, onLeadSelect, error 
                 onChange(fieldName, '');
               }
             }}
-            disabled={(date) => date > new Date()} // Disable future dates
+            disabled={(date) => date > new Date()}
             initialFocus
             className={cn("p-3 pointer-events-auto")}
           />
@@ -240,10 +218,10 @@ export const FormFieldRenderer = ({ field, value, onChange, onLeadSelect, error 
             <SelectTrigger>
               <SelectValue placeholder="Select lead owner" />
             </SelectTrigger>
-            <SelectContent>
-              {leadOwnerIds.map(userId => (
-                <SelectItem key={userId} value={displayNames[userId] || 'Unknown User'}>
-                  {displayNames[userId] || 'Unknown User'}
+            <SelectContent className="bg-white z-50">
+              {allUsers.map(user => (
+                <SelectItem key={user.id} value={displayNames[user.id] || user.email || 'Unknown User'}>
+                  {displayNames[user.id] || user.email || 'Unknown User'}
                 </SelectItem>
               ))}
             </SelectContent>
