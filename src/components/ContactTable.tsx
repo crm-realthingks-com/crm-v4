@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ContactModal } from "./ContactModal";
-import { ContactColumnCustomizer } from "./ContactColumnCustomizer";
+import { ContactColumnCustomizer, ContactColumnConfig } from "./ContactColumnCustomizer";
 import { useUserDisplayNames } from "@/hooks/useUserDisplayNames";
+import { useAllUsers } from "@/hooks/useAllUsers";
 import {
   Table,
   TableBody,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Edit, Trash2, ExternalLink, Users } from "lucide-react";
 
 interface Contact {
@@ -35,16 +37,6 @@ interface Contact {
   modified_time?: string;
 }
 
-interface ContactColumnConfig {
-  contact_name: boolean;
-  company_name: boolean;
-  position: boolean;
-  email: boolean;
-  phone_no: boolean;
-  region: boolean;
-  contact_owner: boolean;
-}
-
 interface ContactTableProps {
   showColumnCustomizer: boolean;
   setShowColumnCustomizer: (show: boolean) => void;
@@ -52,6 +44,7 @@ interface ContactTableProps {
   setShowModal: (show: boolean) => void;
   selectedContacts: string[];
   setSelectedContacts: (contacts: string[]) => void;
+  refreshTrigger?: number;
 }
 
 export const ContactTable = ({ 
@@ -60,22 +53,24 @@ export const ContactTable = ({
   showModal, 
   setShowModal,
   selectedContacts,
-  setSelectedContacts
+  setSelectedContacts,
+  refreshTrigger
 }: ContactTableProps) => {
   const { toast } = useToast();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const { users } = useAllUsers();
   
-  const [columns, setColumns] = useState<ContactColumnConfig>({
-    contact_name: true,
-    company_name: true,
-    position: true,
-    email: true,
-    phone_no: true,
-    region: true,
-    contact_owner: true,
-  });
+  const [columns, setColumns] = useState<ContactColumnConfig[]>([
+    { field: 'contact_name', label: 'Contact Name', visible: true, order: 0 },
+    { field: 'company_name', label: 'Company Name', visible: true, order: 1 },
+    { field: 'position', label: 'Position', visible: true, order: 2 },
+    { field: 'email', label: 'Email', visible: true, order: 3 },
+    { field: 'phone_no', label: 'Phone', visible: true, order: 4 },
+    { field: 'region', label: 'Region', visible: true, order: 5 },
+    { field: 'contact_owner', label: 'Contact Owner', visible: true, order: 6 },
+  ]);
 
   // Get unique contact owner IDs for display name lookup
   const contactOwnerIds = Array.from(new Set(
@@ -86,7 +81,7 @@ export const ContactTable = ({
 
   useEffect(() => {
     fetchContacts();
-  }, []);
+  }, [refreshTrigger]);
 
   const fetchContacts = async () => {
     try {
@@ -139,6 +134,30 @@ export const ContactTable = ({
     }
   };
 
+  const handleContactOwnerChange = async (contactId: string, newOwnerId: string) => {
+    try {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ contact_owner: newOwnerId })
+        .eq('id', contactId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Contact owner updated successfully",
+      });
+      
+      fetchContacts();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update contact owner",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSelectAll = () => {
     if (selectedContacts.length === contacts.length) {
       setSelectedContacts([]);
@@ -168,9 +187,15 @@ export const ContactTable = ({
     setEditingContact(null);
   };
 
+  const getVisibleColumns = () => {
+    return columns.filter(col => col.visible).sort((a, b) => a.order - b.order);
+  };
+
   if (loading) {
     return <div className="p-4">Loading contacts...</div>;
   }
+
+  const visibleColumns = getVisibleColumns();
 
   return (
     <>
@@ -184,13 +209,9 @@ export const ContactTable = ({
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
-              {columns.contact_name && <TableHead>Contact Name</TableHead>}
-              {columns.company_name && <TableHead>Company Name</TableHead>}
-              {columns.position && <TableHead>Position</TableHead>}
-              {columns.email && <TableHead>Email</TableHead>}
-              {columns.phone_no && <TableHead>Phone</TableHead>}
-              {columns.region && <TableHead>Region</TableHead>}
-              {columns.contact_owner && <TableHead>Contact Owner</TableHead>}
+              {visibleColumns.map((column) => (
+                <TableHead key={column.field}>{column.label}</TableHead>
+              ))}
               <TableHead className="w-32">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -203,31 +224,39 @@ export const ContactTable = ({
                     onCheckedChange={() => handleSelectContact(contact.id)}
                   />
                 </TableCell>
-                {columns.contact_name && (
-                  <TableCell className="font-medium">{contact.contact_name}</TableCell>
-                )}
-                {columns.company_name && (
-                  <TableCell>{contact.company_name || '-'}</TableCell>
-                )}
-                {columns.position && (
-                  <TableCell>{contact.position || '-'}</TableCell>
-                )}
-                {columns.email && (
-                  <TableCell>{contact.email || '-'}</TableCell>
-                )}
-                {columns.phone_no && (
-                  <TableCell>{contact.phone_no || '-'}</TableCell>
-                )}
-                {columns.region && (
-                  <TableCell>{contact.region || '-'}</TableCell>
-                )}
-                {columns.contact_owner && (
-                  <TableCell>
-                    {contact.contact_owner ? (
-                      displayNames[contact.contact_owner] || 'Unknown User'
-                    ) : '-'}
+                {visibleColumns.map((column) => (
+                  <TableCell key={column.field}>
+                    {column.field === 'contact_name' && (
+                      <span className="font-medium">{contact.contact_name}</span>
+                    )}
+                    {column.field === 'company_name' && (contact.company_name || '-')}
+                    {column.field === 'position' && (contact.position || '-')}
+                    {column.field === 'email' && (contact.email || '-')}
+                    {column.field === 'phone_no' && (contact.phone_no || '-')}
+                    {column.field === 'region' && (contact.region || '-')}
+                    {column.field === 'contact_owner' && (
+                      <Select
+                        value={contact.contact_owner || ""}
+                        onValueChange={(value) => handleContactOwnerChange(contact.id, value)}
+                      >
+                        <SelectTrigger className="w-40">
+                          <SelectValue placeholder="Select owner">
+                            {contact.contact_owner ? (
+                              displayNames[contact.contact_owner] || 'Unknown User'
+                            ) : 'No owner'}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.displayName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </TableCell>
-                )}
+                ))}
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Button

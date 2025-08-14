@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LeadModal } from "./LeadModal";
 import { ConvertToDealModal } from "./ConvertToDealModal";
-import { LeadColumnCustomizer } from "./LeadColumnCustomizer";
+import { LeadColumnCustomizer, LeadColumnConfig } from "./LeadColumnCustomizer";
 import { useUserDisplayNames } from "@/hooks/useUserDisplayNames";
+import { useAllUsers } from "@/hooks/useAllUsers";
 import {
   Table,
   TableBody,
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Edit, Trash2, ExternalLink, Users, RefreshCw } from "lucide-react";
 
 interface Lead {
@@ -36,17 +38,6 @@ interface Lead {
   created_time?: string;
   modified_time?: string;
   created_by?: string;
-}
-
-interface LeadColumnConfig {
-  lead_name: boolean;
-  company_name: boolean;
-  position: boolean;
-  email: boolean;
-  phone_no: boolean;
-  country: boolean;
-  lead_status: boolean;
-  created_by: boolean;
 }
 
 interface LeadTableProps {
@@ -72,17 +63,18 @@ export const LeadTable = ({
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [convertingLead, setConvertingLead] = useState<Lead | null>(null);
   const [showConvertModal, setShowConvertModal] = useState(false);
+  const { users } = useAllUsers();
   
-  const [columns, setColumns] = useState<LeadColumnConfig>({
-    lead_name: true,
-    company_name: true,
-    position: true,
-    email: true,
-    phone_no: true,
-    country: true,
-    lead_status: true,
-    created_by: true,
-  });
+  const [columns, setColumns] = useState<LeadColumnConfig[]>([
+    { field: 'lead_name', label: 'Lead Name', visible: true, order: 0 },
+    { field: 'company_name', label: 'Company Name', visible: true, order: 1 },
+    { field: 'position', label: 'Position', visible: true, order: 2 },
+    { field: 'email', label: 'Email', visible: true, order: 3 },
+    { field: 'phone_no', label: 'Phone', visible: true, order: 4 },
+    { field: 'country', label: 'Region', visible: true, order: 5 },
+    { field: 'created_by', label: 'Lead Owner', visible: true, order: 6 },
+    { field: 'lead_status', label: 'Lead Status', visible: true, order: 7 },
+  ]);
 
   // Get unique lead owner IDs for display name lookup
   const leadOwnerIds = Array.from(new Set(
@@ -146,6 +138,30 @@ export const LeadTable = ({
     }
   };
 
+  const handleLeadOwnerChange = async (leadId: string, newOwnerId: string) => {
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ contact_owner: newOwnerId })
+        .eq('id', leadId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Lead owner updated successfully",
+      });
+      
+      fetchLeads();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update lead owner",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleConvert = (lead: Lead) => {
     setConvertingLead(lead);
     setShowConvertModal(true);
@@ -185,9 +201,15 @@ export const LeadTable = ({
     setConvertingLead(null);
   };
 
+  const getVisibleColumns = () => {
+    return columns.filter(col => col.visible).sort((a, b) => a.order - b.order);
+  };
+
   if (loading) {
     return <div className="p-4">Loading leads...</div>;
   }
+
+  const visibleColumns = getVisibleColumns();
 
   return (
     <>
@@ -201,14 +223,9 @@ export const LeadTable = ({
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
-              {columns.lead_name && <TableHead>Lead Name</TableHead>}
-              {columns.company_name && <TableHead>Company Name</TableHead>}
-              {columns.position && <TableHead>Position</TableHead>}
-              {columns.email && <TableHead>Email</TableHead>}
-              {columns.phone_no && <TableHead>Phone</TableHead>}
-              {columns.country && <TableHead>Region</TableHead>}
-              {columns.created_by && <TableHead>Lead Owner</TableHead>}
-              {columns.lead_status && <TableHead>Lead Status</TableHead>}
+              {visibleColumns.map((column) => (
+                <TableHead key={column.field}>{column.label}</TableHead>
+              ))}
               <TableHead className="w-40">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -221,45 +238,51 @@ export const LeadTable = ({
                     onCheckedChange={() => handleSelectLead(lead.id)}
                   />
                 </TableCell>
-                {columns.lead_name && (
-                  <TableCell className="font-medium">{lead.lead_name}</TableCell>
-                )}
-                {columns.company_name && (
-                  <TableCell>{lead.company_name || '-'}</TableCell>
-                )}
-                {columns.position && (
-                  <TableCell>{lead.position || '-'}</TableCell>
-                )}
-                {columns.email && (
-                  <TableCell>{lead.email || '-'}</TableCell>
-                )}
-                {columns.phone_no && (
-                  <TableCell>{lead.phone_no || '-'}</TableCell>
-                )}
-                {columns.country && (
-                  <TableCell>{lead.country || '-'}</TableCell>
-                )}
-                {columns.created_by && (
-                  <TableCell>
-                    {lead.contact_owner ? (
-                      displayNames[lead.contact_owner] || 'Unknown User'
-                    ) : lead.created_by ? (
-                      displayNames[lead.created_by] || 'Unknown User'
-                    ) : '-'}
+                {visibleColumns.map((column) => (
+                  <TableCell key={column.field}>
+                    {column.field === 'lead_name' && (
+                      <span className="font-medium">{lead.lead_name}</span>
+                    )}
+                    {column.field === 'company_name' && (lead.company_name || '-')}
+                    {column.field === 'position' && (lead.position || '-')}
+                    {column.field === 'email' && (lead.email || '-')}
+                    {column.field === 'phone_no' && (lead.phone_no || '-')}
+                    {column.field === 'country' && (lead.country || '-')}
+                    {column.field === 'created_by' && (
+                      <Select
+                        value={lead.contact_owner || lead.created_by || ""}
+                        onValueChange={(value) => handleLeadOwnerChange(lead.id, value)}
+                      >
+                        <SelectTrigger className="w-40">
+                          <SelectValue placeholder="Select owner">
+                            {lead.contact_owner ? (
+                              displayNames[lead.contact_owner] || 'Unknown User'
+                            ) : lead.created_by ? (
+                              displayNames[lead.created_by] || 'Unknown User'
+                            ) : 'No owner'}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.displayName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {column.field === 'lead_status' && (
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        lead.lead_status === 'New' ? 'bg-blue-100 text-blue-800' :
+                        lead.lead_status === 'Contacted' ? 'bg-yellow-100 text-yellow-800' :
+                        lead.lead_status === 'Converted' ? 'bg-green-100 text-green-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {lead.lead_status || 'New'}
+                      </span>
+                    )}
                   </TableCell>
-                )}
-                {columns.lead_status && (
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      lead.lead_status === 'New' ? 'bg-blue-100 text-blue-800' :
-                      lead.lead_status === 'Contacted' ? 'bg-yellow-100 text-yellow-800' :
-                      lead.lead_status === 'Converted' ? 'bg-green-100 text-green-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {lead.lead_status || 'New'}
-                    </span>
-                  </TableCell>
-                )}
+                ))}
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <Button

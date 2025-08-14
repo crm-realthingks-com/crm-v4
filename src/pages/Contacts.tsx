@@ -162,7 +162,6 @@ const Contacts = () => {
         setShowColumnCustomizer={setShowColumnCustomizer}
         showModal={showModal}
         setShowModal={setShowModal}
-        onExportReady={() => {}}
         selectedContacts={selectedContacts}
         setSelectedContacts={setSelectedContacts}
         refreshTrigger={refreshTrigger}
