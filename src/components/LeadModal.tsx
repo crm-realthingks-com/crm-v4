@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { useAllUsers } from "@/hooks/useAllUsers";
 
 const leadSchema = z.object({
   lead_name: z.string().min(1, "Lead name is required"),
@@ -24,7 +23,6 @@ const leadSchema = z.object({
   contact_source: z.string().optional(),
   industry: z.string().optional(),
   country: z.string().optional(),
-  contact_owner: z.string().optional(),
   description: z.string().optional(),
   lead_status: z.string().optional(),
 });
@@ -43,7 +41,6 @@ interface Lead {
   contact_source?: string;
   industry?: string;
   country?: string;
-  contact_owner?: string;
   description?: string;
   lead_status?: string;
 }
@@ -92,8 +89,6 @@ const leadStatuses = [
 export const LeadModal = ({ open, onOpenChange, lead, onSuccess }: LeadModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string>("");
-  const { users } = useAllUsers();
 
   const form = useForm<LeadFormData>({
     resolver: zodResolver(leadSchema),
@@ -108,22 +103,10 @@ export const LeadModal = ({ open, onOpenChange, lead, onSuccess }: LeadModalProp
       contact_source: "",
       industry: "Automotive",
       country: "EU",
-      contact_owner: "",
       description: "",
       lead_status: "New",
     },
   });
-
-  useEffect(() => {
-    // Get current user ID for default selection
-    const getCurrentUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-      }
-    };
-    getCurrentUser();
-  }, []);
 
   useEffect(() => {
     if (lead) {
@@ -138,7 +121,6 @@ export const LeadModal = ({ open, onOpenChange, lead, onSuccess }: LeadModalProp
         contact_source: lead.contact_source || "",
         industry: lead.industry || "Automotive",
         country: lead.country || "EU",
-        contact_owner: lead.contact_owner || "",
         description: lead.description || "",
         lead_status: lead.lead_status || "New",
       });
@@ -154,12 +136,11 @@ export const LeadModal = ({ open, onOpenChange, lead, onSuccess }: LeadModalProp
         contact_source: "",
         industry: "Automotive",
         country: "EU",
-        contact_owner: currentUserId, // Default to current user
         description: "",
         lead_status: "New",
       });
     }
-  }, [lead, form, currentUserId]);
+  }, [lead, form]);
 
   const onSubmit = async (data: LeadFormData) => {
     try {
@@ -186,11 +167,11 @@ export const LeadModal = ({ open, onOpenChange, lead, onSuccess }: LeadModalProp
         contact_source: data.contact_source || null,
         industry: data.industry || null,
         country: data.country || null,
-        contact_owner: data.contact_owner || user.data.user.id,
         description: data.description || null,
         lead_status: data.lead_status || 'New',
         created_by: user.data.user.id,
         modified_by: user.data.user.id,
+        contact_owner: user.data.user.id,
       };
 
       if (lead) {
@@ -297,7 +278,7 @@ export const LeadModal = ({ open, onOpenChange, lead, onSuccess }: LeadModalProp
                   <FormItem>
                     <FormLabel>Email *</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="email@example.com" {...field} />
+                      <Input type="email" placeholder=" " {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -412,31 +393,6 @@ export const LeadModal = ({ open, onOpenChange, lead, onSuccess }: LeadModalProp
                         {regions.map((region) => (
                           <SelectItem key={region} value={region}>
                             {region}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="contact_owner"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Lead Owner</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select lead owner" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {users.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.displayName}
                           </SelectItem>
                         ))}
                       </SelectContent>
