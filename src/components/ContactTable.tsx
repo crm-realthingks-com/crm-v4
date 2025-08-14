@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -51,7 +50,6 @@ interface ContactTableProps {
   setShowColumnCustomizer: (show: boolean) => void;
   showModal: boolean;
   setShowModal: (show: boolean) => void;
-  onExportReady: (exportFn: () => void) => void;
   selectedContacts: string[];
   setSelectedContacts: React.Dispatch<React.SetStateAction<string[]>>;
   refreshTrigger?: number;
