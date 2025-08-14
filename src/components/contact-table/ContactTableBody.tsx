@@ -68,6 +68,9 @@ export const ContactTableBody = ({
   
   const { displayNames } = useUserDisplayNames(allUserIds);
 
+  console.log('ContactTableBody: Display names received:', displayNames);
+  console.log('ContactTableBody: Page contacts:', pageContacts.map(c => ({ id: c.id, contact_owner: c.contact_owner, created_by: c.created_by })));
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       const pageContactIds = pageContacts.slice(0, 50).map(c => c.id);
@@ -157,6 +160,27 @@ export const ContactTableBody = ({
     return sortDirection === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />;
   };
 
+  const getDisplayValue = (contact: Contact, columnField: string) => {
+    if (columnField === 'contact_owner') {
+      if (!contact.contact_owner) return '-';
+      const displayName = displayNames[contact.contact_owner];
+      console.log(`ContactTableBody: Getting display value for contact_owner ${contact.contact_owner}:`, displayName);
+      return displayName || "Loading...";
+    } else if (columnField === 'created_by') {
+      if (!contact.created_by) return '-';
+      const displayName = displayNames[contact.created_by];
+      return displayName || "Loading...";
+    } else if (columnField === 'lead_status' && contact.lead_status) {
+      return (
+        <Badge variant={contact.lead_status === 'Converted' ? 'default' : 'secondary'}>
+          {contact.lead_status}
+        </Badge>
+      );
+    } else {
+      return contact[columnField as keyof Contact] || '-';
+    }
+  };
+
   if (loading) {
     return (
       <Table>
@@ -240,26 +264,8 @@ export const ContactTableBody = ({
                   >
                     {contact[column.field as keyof Contact]}
                   </button>
-                ) : column.field === 'contact_owner' ? (
-                  // Show the display name for contact_owner
-                  contact.contact_owner ? (
-                    displayNames[contact.contact_owner] || "Loading..."
-                  ) : (
-                    '-'
-                  )
-                ) : column.field === 'created_by' ? (
-                  // Show the display name for created_by
-                  contact.created_by ? (
-                    displayNames[contact.created_by] || "Loading..."
-                  ) : (
-                    '-'
-                  )
-                ) : column.field === 'lead_status' && contact.lead_status ? (
-                  <Badge variant={contact.lead_status === 'Converted' ? 'default' : 'secondary'}>
-                    {contact.lead_status}
-                  </Badge>
                 ) : (
-                  contact[column.field as keyof Contact] || '-'
+                  getDisplayValue(contact, column.field)
                 )}
               </TableCell>
             ))}
