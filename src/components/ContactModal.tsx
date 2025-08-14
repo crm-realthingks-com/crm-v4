@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { useAllUsers } from "@/hooks/useAllUsers";
 
 const contactSchema = z.object({
   contact_name: z.string().min(1, "Contact name is required"),
@@ -22,7 +23,8 @@ const contactSchema = z.object({
   website: z.string().url("Invalid website URL").optional().or(z.literal("")),
   contact_source: z.string().optional(),
   industry: z.string().optional(),
-  region: z.string().optional(), // Changed from country to region
+  region: z.string().optional(),
+  contact_owner: z.string().optional(),
   description: z.string().optional(),
 });
 
@@ -39,7 +41,8 @@ interface Contact {
   website?: string;
   contact_source?: string;
   industry?: string;
-  region?: string; // Changed from country to region
+  region?: string;
+  contact_owner?: string;
   description?: string;
 }
 
@@ -62,7 +65,12 @@ const contactSources = [
 const industries = [
   "Automotive",
   "Technology",
+  "Healthcare",
+  "Finance",
   "Manufacturing",
+  "Retail",
+  "Education",
+  "Real Estate",
   "Other"
 ];
 
@@ -76,6 +84,8 @@ const regions = [
 export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: ContactModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const { users } = useAllUsers();
 
   const form = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
@@ -89,10 +99,22 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
       website: "",
       contact_source: "",
       industry: "Automotive",
-      region: "EU", // Changed from country to region
+      region: "EU",
+      contact_owner: "",
       description: "",
     },
   });
+
+  useEffect(() => {
+    // Get current user ID for default selection
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    getCurrentUser();
+  }, []);
 
   useEffect(() => {
     if (contact) {
@@ -106,7 +128,8 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
         website: contact.website || "",
         contact_source: contact.contact_source || "",
         industry: contact.industry || "Automotive",
-        region: contact.region || "EU", // Changed from country to region
+        region: contact.region || "EU",
+        contact_owner: contact.contact_owner || "",
         description: contact.description || "",
       });
     } else {
@@ -120,11 +143,12 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
         website: "",
         contact_source: "",
         industry: "Automotive",
-        region: "EU", // Changed from country to region
+        region: "EU",
+        contact_owner: currentUserId, // Default to current user
         description: "",
       });
     }
-  }, [contact, form]);
+  }, [contact, form, currentUserId]);
 
   const onSubmit = async (data: ContactFormData) => {
     try {
@@ -150,11 +174,11 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
         website: data.website || null,
         contact_source: data.contact_source || null,
         industry: data.industry || null,
-        region: data.region || null, // Changed from country to region
+        region: data.region || null,
+        contact_owner: data.contact_owner || user.data.user.id,
         description: data.description || null,
         created_by: user.data.user.id,
         modified_by: user.data.user.id,
-        contact_owner: user.data.user.id,
       };
 
       if (contact) {
@@ -190,7 +214,6 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
       onSuccess();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error saving contact:', error);
       toast({
         title: "Error",
         description: contact ? "Failed to update contact" : "Failed to create contact",
@@ -290,7 +313,7 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
                   <FormItem>
                     <FormLabel>LinkedIn Profile</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://linkedin.com/in/username" {...field} />
+                      <Input placeholder="https://linkedin.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -377,6 +400,31 @@ export const ContactModal = ({ open, onOpenChange, contact, onSuccess }: Contact
                         {regions.map((region) => (
                           <SelectItem key={region} value={region}>
                             {region}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="contact_owner"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contact Owner</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select contact owner" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.displayName}
                           </SelectItem>
                         ))}
                       </SelectContent>
