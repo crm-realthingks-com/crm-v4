@@ -27,20 +27,17 @@ const menuItems = [
 
 interface AppSidebarProps {
   isFixed?: boolean;
-  isOpen?: boolean;
-  onToggle?: (open: boolean) => void;
 }
 
-export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProps) {
-  const [isPinned, setIsPinned] = useState(true);
+export function AppSidebar({ isFixed = false }: AppSidebarProps) {
+  const [isPinned, setIsPinned] = useState(true); // default: open
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const currentPath = location.pathname;
 
-  // Use external state if provided (for fixed mode), otherwise use internal state
-  const sidebarOpen = isFixed ? (isOpen ?? true) : isPinned;
-  const setSidebarOpen = isFixed ? (onToggle || (() => {})) : setIsPinned;
+  // No parent-controlled open state — always use isPinned
+  const sidebarOpen = isPinned;
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -50,7 +47,6 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
   };
 
   const handleSignOut = async () => {
-    console.log('Sign out clicked');
     await signOut();
   };
 
@@ -62,26 +58,19 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
     return user?.user_metadata?.full_name || user?.email || 'User';
   };
 
-  // Only toggle on Pin button click - removed auto-toggle behavior
+  // Only toggle on Pin button click
   const togglePin = () => {
-    if (isFixed) {
-      onToggle?.(!sidebarOpen);
-    } else {
-      setIsPinned(!isPinned);
-    }
+    setIsPinned(!isPinned);
   };
 
-  // Handle menu item click without auto-toggling sidebar
+  // Menu item click: navigation only, no state changes
   const handleMenuItemClick = (url: string) => {
     navigate(url);
-    // Removed auto-collapse behavior - sidebar state remains unchanged
   };
 
   return (
     <div 
-      className={`h-screen flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ease-in-out ${
-        isFixed ? 'relative' : ''
-      }`}
+      className={`h-screen flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ease-in-out`}
       style={{ 
         width: sidebarOpen ? '220px' : '60px',
         minWidth: sidebarOpen ? '220px' : '60px',
@@ -97,7 +86,7 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
             className="w-8 h-8 flex-shrink-0 object-contain"
           />
           {sidebarOpen && (
-            <span className="ml-3 text-gray-800 font-semibold text-lg whitespace-nowrap opacity-100 transition-opacity duration-300" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+            <span className="ml-3 text-gray-800 font-semibold text-lg whitespace-nowrap">
               RealThingks
             </span>
           )}
@@ -125,7 +114,6 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
                   paddingTop: '10px',
                   paddingBottom: '10px',
                   minHeight: '44px',
-                  fontFamily: 'Inter, system-ui, sans-serif',
                   fontSize: '15px',
                   fontWeight: '500'
                 }}
@@ -134,25 +122,13 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
                   className="flex items-center justify-center"
                   style={{ 
                     width: sidebarOpen ? '20px' : '60px',
-                    height: '20px',
-                    minWidth: '20px',
-                    minHeight: '20px'
+                    height: '20px'
                   }}
                 >
-                  <item.icon 
-                    className="w-5 h-5" 
-                    style={{ 
-                      minWidth: '20px',
-                      minHeight: '20px'
-                    }} 
-                  />
+                  <item.icon className="w-5 h-5" />
                 </div>
                 {sidebarOpen && (
-                  <span 
-                    className="ml-3 opacity-100 transition-opacity duration-300"
-                  >
-                    {item.title}
-                  </span>
+                  <span className="ml-3">{item.title}</span>
                 )}
               </button>
             );
@@ -163,7 +139,7 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
                   <TooltipTrigger asChild>
                     {menuButton}
                   </TooltipTrigger>
-                  <TooltipContent side="right" className="ml-2">
+                  <TooltipContent side="right">
                     <p>{item.title}</p>
                   </TooltipContent>
                 </Tooltip>
@@ -179,10 +155,10 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
         </nav>
       </div>
 
-      {/* Bottom Section - Pin Toggle & User & Sign Out */}
+      {/* Bottom Section */}
       <div className="border-t border-gray-300 p-4 space-y-3 relative">
-        {/* Pin Toggle Button - Always bottom-left aligned */}
-        <div className="flex" style={{ justifyContent: sidebarOpen ? 'flex-start' : 'flex-start', paddingLeft: sidebarOpen ? '0px' : '6px' }}>
+        {/* Pin Toggle Button */}
+        <div className="flex" style={{ paddingLeft: sidebarOpen ? '0px' : '6px' }}>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -209,39 +185,31 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
               <TooltipTrigger asChild>
                 <button
                   onClick={handleSignOut}
-                  className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                  style={{ minWidth: '40px', minHeight: '40px' }}
+                  className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
                 >
                   <LogOut className="w-5 h-5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right" className="ml-2">
+              <TooltipContent side="right">
                 <p>Sign Out</p>
               </TooltipContent>
             </Tooltip>
           </div>
         ) : (
-          <div className="flex items-center relative" style={{ minHeight: '40px' }}>
+          <div className="flex items-center relative">
             <button
               onClick={handleSignOut}
-              className="flex items-center justify-center text-gray-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+              className="flex items-center justify-center text-gray-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
               style={{ 
                 position: 'absolute',
                 left: '6px',
                 width: '40px',
-                height: '40px',
-                minWidth: '40px'
+                height: '40px'
               }}
             >
               <LogOut className="w-5 h-5" />
             </button>
-            <p 
-              className="text-gray-700 text-sm font-medium truncate ml-16 opacity-100 transition-opacity duration-300"
-              style={{ 
-                fontFamily: 'Inter, system-ui, sans-serif',
-                fontSize: '15px'
-              }}
-            >
+            <p className="text-gray-700 text-sm font-medium truncate ml-16">
               {getUserDisplayName()}
             </p>
           </div>
