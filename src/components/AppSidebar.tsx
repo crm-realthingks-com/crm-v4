@@ -1,3 +1,4 @@
+
 import { 
   Home, 
   Users, 
@@ -10,7 +11,7 @@ import {
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -27,17 +28,20 @@ const menuItems = [
 
 interface AppSidebarProps {
   isFixed?: boolean;
+  isOpen?: boolean;
+  onToggle?: (open: boolean) => void;
 }
 
-export function AppSidebar({ isFixed = false }: AppSidebarProps) {
-  const [isPinned, setIsPinned] = useState(true); // default: open
+export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProps) {
+  const [isPinned, setIsPinned] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const currentPath = location.pathname;
 
-  // No parent-controlled open state — always use isPinned
-  const sidebarOpen = isPinned;
+  // Use external state if provided (for fixed mode), otherwise use internal state
+  const sidebarOpen = isFixed ? (isOpen ?? true) : isPinned;
+  const setSidebarOpen = isFixed ? (onToggle || (() => {})) : setIsPinned;
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -47,6 +51,7 @@ export function AppSidebar({ isFixed = false }: AppSidebarProps) {
   };
 
   const handleSignOut = async () => {
+    console.log('Sign out clicked');
     await signOut();
   };
 
@@ -58,19 +63,19 @@ export function AppSidebar({ isFixed = false }: AppSidebarProps) {
     return user?.user_metadata?.full_name || user?.email || 'User';
   };
 
-  // Only toggle on Pin button click
   const togglePin = () => {
-    setIsPinned(!isPinned);
-  };
-
-  // Menu item click: navigation only, no state changes
-  const handleMenuItemClick = (url: string) => {
-    navigate(url);
+    if (isFixed) {
+      onToggle?.(!sidebarOpen);
+    } else {
+      setIsPinned(!isPinned);
+    }
   };
 
   return (
     <div 
-      className={`h-screen flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ease-in-out`}
+      className={`h-screen flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ease-in-out ${
+        isFixed ? 'relative' : ''
+      }`}
       style={{ 
         width: sidebarOpen ? '220px' : '60px',
         minWidth: sidebarOpen ? '220px' : '60px',
@@ -86,7 +91,7 @@ export function AppSidebar({ isFixed = false }: AppSidebarProps) {
             className="w-8 h-8 flex-shrink-0 object-contain"
           />
           {sidebarOpen && (
-            <span className="ml-3 text-gray-800 font-semibold text-lg whitespace-nowrap">
+            <span className="ml-3 text-gray-800 font-semibold text-lg whitespace-nowrap opacity-100 transition-opacity duration-300" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
               RealThingks
             </span>
           )}
@@ -99,10 +104,10 @@ export function AppSidebar({ isFixed = false }: AppSidebarProps) {
           {menuItems.map((item) => {
             const active = isActive(item.url);
             const menuButton = (
-              <button
-                onClick={() => handleMenuItemClick(item.url)}
-                className={`
-                  w-full flex items-center rounded-lg relative transition-colors duration-200
+              <NavLink
+                to={item.url}
+                 className={`
+                  flex items-center rounded-lg relative transition-colors duration-200
                   ${active 
                     ? 'text-blue-700 bg-blue-100' 
                     : 'text-gray-600 hover:text-blue-700 hover:bg-blue-50'
@@ -114,6 +119,7 @@ export function AppSidebar({ isFixed = false }: AppSidebarProps) {
                   paddingTop: '10px',
                   paddingBottom: '10px',
                   minHeight: '44px',
+                  fontFamily: 'Inter, system-ui, sans-serif',
                   fontSize: '15px',
                   fontWeight: '500'
                 }}
@@ -122,15 +128,27 @@ export function AppSidebar({ isFixed = false }: AppSidebarProps) {
                   className="flex items-center justify-center"
                   style={{ 
                     width: sidebarOpen ? '20px' : '60px',
-                    height: '20px'
+                    height: '20px',
+                    minWidth: '20px',
+                    minHeight: '20px'
                   }}
                 >
-                  <item.icon className="w-5 h-5" />
+                  <item.icon 
+                    className="w-5 h-5" 
+                    style={{ 
+                      minWidth: '20px',
+                      minHeight: '20px'
+                    }} 
+                  />
                 </div>
                 {sidebarOpen && (
-                  <span className="ml-3">{item.title}</span>
+                  <span 
+                    className="ml-3 opacity-100 transition-opacity duration-300"
+                  >
+                    {item.title}
+                  </span>
                 )}
-              </button>
+              </NavLink>
             );
 
             if (!sidebarOpen) {
@@ -139,7 +157,7 @@ export function AppSidebar({ isFixed = false }: AppSidebarProps) {
                   <TooltipTrigger asChild>
                     {menuButton}
                   </TooltipTrigger>
-                  <TooltipContent side="right">
+                  <TooltipContent side="right" className="ml-2">
                     <p>{item.title}</p>
                   </TooltipContent>
                 </Tooltip>
@@ -155,10 +173,10 @@ export function AppSidebar({ isFixed = false }: AppSidebarProps) {
         </nav>
       </div>
 
-      {/* Bottom Section */}
+      {/* Bottom Section - Pin Toggle & User & Sign Out */}
       <div className="border-t border-gray-300 p-4 space-y-3 relative">
-        {/* Pin Toggle Button */}
-        <div className="flex" style={{ paddingLeft: sidebarOpen ? '0px' : '6px' }}>
+        {/* Pin Toggle Button - Always bottom-left aligned */}
+        <div className="flex" style={{ justifyContent: sidebarOpen ? 'flex-start' : 'flex-start', paddingLeft: sidebarOpen ? '0px' : '6px' }}>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -185,31 +203,39 @@ export function AppSidebar({ isFixed = false }: AppSidebarProps) {
               <TooltipTrigger asChild>
                 <button
                   onClick={handleSignOut}
-                  className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                  className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                  style={{ minWidth: '40px', minHeight: '40px' }}
                 >
                   <LogOut className="w-5 h-5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right">
+              <TooltipContent side="right" className="ml-2">
                 <p>Sign Out</p>
               </TooltipContent>
             </Tooltip>
           </div>
         ) : (
-          <div className="flex items-center relative">
+          <div className="flex items-center relative" style={{ minHeight: '40px' }}>
             <button
               onClick={handleSignOut}
-              className="flex items-center justify-center text-gray-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+              className="flex items-center justify-center text-gray-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
               style={{ 
                 position: 'absolute',
                 left: '6px',
                 width: '40px',
-                height: '40px'
+                height: '40px',
+                minWidth: '40px'
               }}
             >
               <LogOut className="w-5 h-5" />
             </button>
-            <p className="text-gray-700 text-sm font-medium truncate ml-16">
+            <p 
+              className="text-gray-700 text-sm font-medium truncate ml-16 opacity-100 transition-opacity duration-300"
+              style={{ 
+                fontFamily: 'Inter, system-ui, sans-serif',
+                fontSize: '15px'
+              }}
+            >
               {getUserDisplayName()}
             </p>
           </div>
