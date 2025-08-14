@@ -3,7 +3,7 @@ import { ContactTable } from "@/components/ContactTable";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Settings, Download, Upload, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ const Contacts = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   console.log('Contacts page: Rendering with refreshTrigger:', refreshTrigger);
 
@@ -28,6 +29,11 @@ const Contacts = () => {
   };
 
   const { handleImport, handleExport, isImporting } = useSimpleContactsImportExport(onRefresh);
+
+  const handleImportClick = () => {
+    console.log('Contacts page: Import clicked, opening file dialog');
+    fileInputRef.current?.click();
+  };
 
   const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -113,18 +119,9 @@ const Contacts = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem asChild>
-                <label className="flex items-center cursor-pointer">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Import CSV
-                  <Input
-                    type="file"
-                    accept=".csv"
-                    onChange={handleImportCSV}
-                    className="hidden"
-                    disabled={isImporting}
-                  />
-                </label>
+              <DropdownMenuItem onClick={handleImportClick} disabled={isImporting}>
+                <Upload className="w-4 h-4 mr-2" />
+                Import CSV
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExport}>
                 <Download className="w-4 h-4 mr-2" />
@@ -148,6 +145,16 @@ const Contacts = () => {
           </Button>
         </div>
       </div>
+
+      {/* Hidden file input for CSV import */}
+      <Input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv"
+        onChange={handleImportCSV}
+        className="hidden"
+        disabled={isImporting}
+      />
 
       {/* Contact Table */}
       <ContactTable 
