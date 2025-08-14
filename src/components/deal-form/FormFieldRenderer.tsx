@@ -1,4 +1,3 @@
-
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { Deal } from "@/types/deal";
 import { LeadSearchableDropdown } from "@/components/LeadSearchableDropdown";
 import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react";
+import { useUserDisplayNames } from "@/hooks/useUserDisplayNames";
 
 interface FormFieldRendererProps {
   field: string;
@@ -22,6 +23,36 @@ interface FormFieldRendererProps {
 }
 
 export const FormFieldRenderer = ({ field, value, onChange, onLeadSelect, error }: FormFieldRendererProps) => {
+  const [leadOwnerIds, setLeadOwnerIds] = useState<string[]>([]);
+  const { displayNames } = useUserDisplayNames(leadOwnerIds);
+
+  useEffect(() => {
+    if (field === 'lead_owner') {
+      fetchLeadOwners();
+    }
+  }, [field]);
+
+  const fetchLeadOwners = async () => {
+    try {
+      // Fetch all unique lead owners (created_by) from leads table
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select('created_by')
+        .not('created_by', 'is', null);
+
+      if (error) {
+        console.error('Error fetching lead owners:', error);
+        return;
+      }
+
+      // Get unique user IDs
+      const uniqueUserIds = Array.from(new Set(leads.map(lead => lead.created_by).filter(Boolean)));
+      setLeadOwnerIds(uniqueUserIds);
+    } catch (error) {
+      console.error('Error in fetchLeadOwners:', error);
+    }
+  };
+
   const getFieldLabel = (field: string) => {
     const labels: Record<string, string> = {
       project_name: 'Project Name',
@@ -198,6 +229,25 @@ export const FormFieldRenderer = ({ field, value, onChange, onLeadSelect, error 
             onLeadSelect={handleLeadSelect}
             placeholder="Search and select a lead..."
           />
+        );
+
+      case 'lead_owner':
+        return (
+          <Select
+            value={value?.toString() || ''}
+            onValueChange={(val) => onChange(field, val)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select lead owner" />
+            </SelectTrigger>
+            <SelectContent>
+              {leadOwnerIds.map(userId => (
+                <SelectItem key={userId} value={displayNames[userId] || 'Unknown User'}>
+                  {displayNames[userId] || 'Unknown User'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         );
 
       case 'priority':
