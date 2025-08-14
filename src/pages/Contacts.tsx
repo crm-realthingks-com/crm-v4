@@ -1,4 +1,3 @@
-
 import { ContactTable } from "@/components/ContactTable";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -162,7 +161,6 @@ const Contacts = () => {
         setShowColumnCustomizer={setShowColumnCustomizer}
         showModal={showModal}
         setShowModal={setShowModal}
-        onExportReady={() => {}}
         selectedContacts={selectedContacts}
         setSelectedContacts={setSelectedContacts}
         refreshTrigger={refreshTrigger}
