@@ -1,6 +1,7 @@
+
 import { downloadCSV } from '@/utils/csvUtils';
 
-// Exact field order as specified by user - ID removed to prevent conflicts
+// Updated field order after database field removal - removed deleted fields
 const DEALS_EXPORT_FIELDS = [
   'deal_name', 'stage', 'internal_comment', 'project_name', 'lead_name',
   'customer_name', 'region', 'lead_owner', 'priority', 'customer_need', 

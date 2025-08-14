@@ -92,7 +92,7 @@ export const createHeaderMapper = (tableName: string) => {
       return null;
     }
     
-    // For deals, keep existing comprehensive mappings
+    // For deals, updated mappings after field removal
     if (tableName === 'deals') {
       // Direct field matches first (case-insensitive)
       const directMatch = config.allowedColumns.find(col => 
@@ -103,17 +103,8 @@ export const createHeaderMapper = (tableName: string) => {
         return directMatch;
       }
       
-      // Comprehensive field mappings for deals (case-insensitive)
+      // Updated field mappings for deals - removed deleted fields
       const dealMappings: Record<string, string> = {
-        // System fields
-        'id': 'id',
-        'deal id': 'id',
-        'deal_id': 'id',
-        'created_at': 'created_at',
-        'modified_at': 'modified_at',
-        'created_by': 'created_by',
-        'modified_by': 'modified_by',
-        
         // Core deal fields
         'deal_name': 'deal_name',
         'deal name': 'deal_name',
@@ -129,7 +120,6 @@ export const createHeaderMapper = (tableName: string) => {
         'customer name': 'customer_name',
         'customer': 'customer_name',
         'client': 'customer_name',
-        'company': 'customer_name',
         'lead_name': 'lead_name',
         'lead name': 'lead_name',
         'lead': 'lead_name',
@@ -194,7 +184,6 @@ export const createHeaderMapper = (tableName: string) => {
         'contract value': 'total_contract_value',
         'deal value': 'total_contract_value',
         'value': 'total_contract_value',
-        'amount': 'total_contract_value',
         'deal amount': 'total_contract_value',
         'currency_type': 'currency_type',
         'currency type': 'currency_type',

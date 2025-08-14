@@ -31,7 +31,7 @@ export const createValueValidator = (tableName: string) => {
       return null;
     }
 
-    // Handle specific field types for deals
+    // Handle specific field types for deals - updated for remaining fields only
     if (tableName === 'deals') {
       switch (key) {
         case 'priority':
@@ -71,7 +71,7 @@ export const createValueValidator = (tableName: string) => {
           const date = new Date(value);
           return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
         
-        // Text fields
+        // Text fields - only remaining ones
         case 'deal_name':
         case 'project_name':
         case 'lead_name':

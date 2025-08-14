@@ -7,7 +7,7 @@ interface DealsProcessOptions {
   onProgress?: (processed: number, total: number) => void;
 }
 
-// Exact field mapping as specified by user - ID removed to prevent conflicts
+// Updated field mapping after database field removal - removed deleted fields
 const DEALS_FIELDS = [
   'deal_name', 'stage', 'internal_comment', 'project_name', 'lead_name',
   'customer_name', 'region', 'lead_owner', 'priority', 'customer_need', 
@@ -132,7 +132,7 @@ export class DealsCSVProcessor {
     // Normalize header to match our field names exactly
     const normalized = header.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
     
-    // Direct mapping for common variations - ID field removed completely
+    // Direct mapping for remaining fields only
     const mappings: Record<string, string> = {
       'deal_name': 'deal_name',
       'name': 'deal_name',
@@ -228,8 +228,8 @@ export class DealsCSVProcessor {
     // No validation - just basic type conversion
     if (!value || value === '') return null;
     
-    // Numbers
-    if (['budget', 'probability', 'total_contract_value', 'quarterly_revenue_q1', 
+    // Numbers - only for remaining numeric fields
+    if (['probability', 'total_contract_value', 'quarterly_revenue_q1', 
          'quarterly_revenue_q2', 'quarterly_revenue_q3', 'quarterly_revenue_q4', 
          'total_revenue', 'project_duration'].includes(fieldName)) {
       const num = parseFloat(value);
