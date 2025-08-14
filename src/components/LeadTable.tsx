@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LeadColumnCustomizer } from "./LeadColumnCustomizer";
+import { LeadColumnCustomizer, LeadColumnConfig } from "./LeadColumnCustomizer";
 import { LeadModal } from "./LeadModal";
 import { ConvertToDealModal } from "./ConvertToDealModal";
 import { Button } from "./ui/button";
@@ -53,16 +53,16 @@ export const LeadTable = ({
   const { toast } = useToast();
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [convertingLead, setConvertingLead] = useState<Lead | null>(null);
-  const [visibleColumns, setVisibleColumns] = useState({
-    lead_name: true,
-    company_name: true,
-    position: true,
-    email: true,
-    phone_no: true,
-    country: true,
-    lead_status: true,
-    created_by: true,
-  });
+  const [columns, setColumns] = useState<LeadColumnConfig[]>([
+    { field: 'lead_name', label: 'Lead Name', visible: true, order: 0 },
+    { field: 'company_name', label: 'Company Name', visible: true, order: 1 },
+    { field: 'position', label: 'Position', visible: true, order: 2 },
+    { field: 'email', label: 'Email', visible: true, order: 3 },
+    { field: 'phone_no', label: 'Phone', visible: true, order: 4 },
+    { field: 'country', label: 'Country', visible: true, order: 5 },
+    { field: 'lead_status', label: 'Status', visible: true, order: 6 },
+    { field: 'created_by', label: 'Lead Owner', visible: true, order: 7 },
+  ]);
   const [editingCell, setEditingCell] = useState<{leadId: string, field: string} | null>(null);
   const [tempValue, setTempValue] = useState<string>("");
   
@@ -116,6 +116,12 @@ export const LeadTable = ({
 
     fetchAllLeadOwners();
   }, []);
+
+  // Create visibleColumns object from columns state for easy access
+  const visibleColumns = columns.reduce((acc, col) => {
+    acc[col.field] = col.visible;
+    return acc;
+  }, {} as Record<string, boolean>);
 
   const handleDelete = async (leadId: string) => {
     try {
@@ -394,10 +400,8 @@ export const LeadTable = ({
       <LeadColumnCustomizer
         open={showColumnCustomizer}
         onOpenChange={setShowColumnCustomizer}
-        visibleColumns={visibleColumns}
-        onColumnVisibilityChange={(column, visible) => 
-          setVisibleColumns(prev => ({ ...prev, [column]: visible }))
-        }
+        columns={columns}
+        onColumnsChange={setColumns}
       />
 
       <LeadModal
