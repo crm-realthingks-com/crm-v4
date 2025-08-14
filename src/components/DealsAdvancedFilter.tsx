@@ -167,16 +167,16 @@ export const DealsAdvancedFilter = ({
 
   const activeFiltersCount = getActiveFiltersCount();
 
-  const renderMultiSelectSection = (
+  const renderFilterSection = (
     title: string,
     key: keyof Pick<AdvancedFilterState, 'stages' | 'regions' | 'leadOwners' | 'priorities' | 'probabilities' | 'handoffStatuses'>,
     options: string[]
   ) => (
-    <div className="space-y-2">
-      <Label className="text-sm font-medium">{title}</Label>
-      <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+    <div className="space-y-3">
+      <Label className="text-sm font-semibold text-foreground">{title}</Label>
+      <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
         {options.map((option) => (
-          <div key={option} className="flex items-center space-x-2">
+          <div key={option} className="flex items-center space-x-3 py-1">
             <Checkbox
               id={`${key}-${option}`}
               checked={(localFilters[key] as string[]).includes(option)}
@@ -185,7 +185,7 @@ export const DealsAdvancedFilter = ({
             />
             <Label
               htmlFor={`${key}-${option}`}
-              className="text-sm font-normal cursor-pointer flex-1"
+              className="text-sm text-muted-foreground cursor-pointer flex-1 leading-none"
             >
               {key === 'priorities' ? `Priority ${option}` : option}
             </Label>
@@ -201,7 +201,7 @@ export const DealsAdvancedFilter = ({
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="relative">
             <Filter className="w-4 h-4 mr-2" />
-            Filter
+            Advanced Filters
             {activeFiltersCount > 0 && (
               <Badge variant="secondary" className="ml-2 px-1.5 py-0.5 text-xs">
                 {activeFiltersCount}
@@ -210,137 +210,108 @@ export const DealsAdvancedFilter = ({
           </Button>
         </PopoverTrigger>
         <PopoverContent 
-          className="w-[600px] p-0" 
+          className="w-[520px] p-0" 
           align="start"
           side="bottom"
-          sideOffset={5}
+          sideOffset={8}
         >
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                  <Filter className="w-5 h-5" />
-                  Advanced Filters
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-                    <DialogTrigger asChild>
+          <div className="bg-background border border-border rounded-lg shadow-lg">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <h3 className="text-base font-semibold text-foreground">Advanced Filters</h3>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(true)}>
+                  Save
+                </Button>
+                {savedFilters.length > 0 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
                       <Button variant="outline" size="sm">
-                        <Save className="w-4 h-4 mr-1" />
-                        Save
+                        <FolderOpen className="w-4 h-4" />
                       </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Save Filter Set</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="filter-name">Filter Name</Label>
-                          <Input
-                            id="filter-name"
-                            value={filterName}
-                            onChange={(e) => setFilterName(e.target.value)}
-                            placeholder="Enter filter name..."
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button onClick={saveCurrentFilter} disabled={!filterName.trim()}>
-                            Save Filter
-                          </Button>
-                          <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
-                            Cancel
-                          </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80">
+                      <div className="space-y-3">
+                        <h4 className="font-medium">Saved Filters</h4>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {savedFilters.map((savedFilter) => (
+                            <div
+                              key={savedFilter.id}
+                              className="flex items-center justify-between p-2 border rounded-md"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{savedFilter.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {savedFilter.createdAt.toLocaleDateString()}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => loadSavedFilter(savedFilter)}
+                                >
+                                  Load
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteSavedFilter(savedFilter.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    </DialogContent>
-                  </Dialog>
-                  
-                  {savedFilters.length > 0 && (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <FolderOpen className="w-4 h-4 mr-1" />
-                          Load
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80">
-                        <div className="space-y-3">
-                          <h4 className="font-medium">Saved Filters</h4>
-                          <div className="space-y-2 max-h-60 overflow-y-auto">
-                            {savedFilters.map((savedFilter) => (
-                              <div
-                                key={savedFilter.id}
-                                className="flex items-center justify-between p-2 border rounded-md"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate">{savedFilter.name}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {savedFilter.createdAt.toLocaleDateString()}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => loadSavedFilter(savedFilter)}
-                                  >
-                                    Load
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => deleteSavedFilter(savedFilter.id)}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  )}
-                </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
               </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Search */}
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-6 max-h-[600px] overflow-y-auto">
+              {/* Keyword Search */}
               <div className="space-y-2">
-                <Label htmlFor="search" className="text-sm font-medium">Keyword Search</Label>
+                <Label className="text-sm font-semibold text-foreground">Keyword Search</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <Input
-                    id="search"
                     placeholder="Search deal name, project, lead, customer, region..."
                     value={localFilters.searchTerm}
                     onChange={(e) => updateLocalFilter("searchTerm", e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-9"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                {/* Left Column */}
-                <div className="space-y-4">
-                  {renderMultiSelectSection("Stages", "stages", DEAL_STAGES)}
-                  {renderMultiSelectSection("Regions", "regions", REGION_OPTIONS)}
-                  {renderMultiSelectSection("Priorities", "priorities", PRIORITY_OPTIONS)}
+              {/* Filters Grid */}
+              <div className="grid grid-cols-3 gap-6">
+                {/* Column 1 */}
+                <div className="space-y-6">
+                  {renderFilterSection("Stages", "stages", DEAL_STAGES)}
+                  {renderFilterSection("Regions", "regions", REGION_OPTIONS)}
                 </div>
 
-                {/* Right Column */}
-                <div className="space-y-4">
-                  {renderMultiSelectSection("Lead Owners", "leadOwners", availableLeadOwners)}
-                  {renderMultiSelectSection("Probabilities (%)", "probabilities", PROBABILITY_OPTIONS)}
-                  {renderMultiSelectSection("Handoff Status", "handoffStatuses", availableHandoffStatuses)}
+                {/* Column 2 */}
+                <div className="space-y-6">
+                  {renderFilterSection("Lead Owners", "leadOwners", availableLeadOwners)}
+                  {renderFilterSection("Priorities", "priorities", PRIORITY_OPTIONS)}
+                </div>
+
+                {/* Column 3 */}
+                <div className="space-y-6">
+                  {renderFilterSection("Probabilities (%)", "probabilities", PROBABILITY_OPTIONS)}
+                  {renderFilterSection("Handoff Status", "handoffStatuses", availableHandoffStatuses)}
                 </div>
               </div>
 
-              {/* Probability Range */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Probability Range (%)</Label>
-                <div className="px-3">
+              {/* Probability Range Slider */}
+              <div className="space-y-3 pt-2 border-t border-border">
+                <Label className="text-sm font-semibold text-foreground">Probability Range (%)</Label>
+                <div className="px-2">
                   <Slider
                     value={localFilters.probabilityRange}
                     onValueChange={(value) => updateLocalFilter("probabilityRange", value as [number, number])}
@@ -348,32 +319,61 @@ export const DealsAdvancedFilter = ({
                     step={5}
                     className="w-full"
                   />
-                  <div className="flex justify-between text-sm text-muted-foreground mt-1">
+                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
                     <span>{localFilters.probabilityRange[0]}%</span>
                     <span>{localFilters.probabilityRange[1]}%</span>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4 border-t">
-                <Button 
-                  onClick={clearAllFilters} 
-                  variant="outline" 
-                  className="flex-1"
-                  disabled={activeFiltersCount === 0}
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Clear All
-                </Button>
-                <Button onClick={applyFilters} className="flex-1">
-                  Apply Filters
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Footer Actions */}
+            <div className="flex gap-3 px-4 py-3 border-t border-border bg-muted/20">
+              <Button 
+                onClick={clearAllFilters} 
+                variant="outline" 
+                size="sm"
+                className="flex-1"
+                disabled={activeFiltersCount === 0}
+              >
+                <X className="w-4 h-4 mr-2" />
+                Clear All
+              </Button>
+              <Button onClick={applyFilters} size="sm" className="flex-1">
+                Apply Filters
+              </Button>
+            </div>
+          </div>
         </PopoverContent>
       </Popover>
+
+      {/* Save Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Filter Set</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="filter-name">Filter Name</Label>
+              <Input
+                id="filter-name"
+                value={filterName}
+                onChange={(e) => setFilterName(e.target.value)}
+                placeholder="Enter filter name..."
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={saveCurrentFilter} disabled={!filterName.trim()}>
+                Save Filter
+              </Button>
+              <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
