@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -7,7 +8,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -88,44 +88,15 @@ export const LeadTable = ({
   const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
   const [columns, setColumns] = useState(defaultColumns);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(50); // Changed from 10 to 50
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [leadToConvert, setLeadToConvert] = useState<Lead | null>(null);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [allUsers, setAllUsers] = useState<any[]>([]);
-
-  // Get all user IDs for display names (both from leads and all auth users)
-  const allUserIds = useMemo(() => {
-    const leadsUserIds = [...new Set(leads.map(l => l.created_by).filter(Boolean))];
-    const authUserIds = allUsers.map(u => u.id);
-    return [...new Set([...leadsUserIds, ...authUserIds])];
-  }, [leads, allUsers]);
-
-  const { displayNames } = useUserDisplayNames(allUserIds);
 
   useEffect(() => {
     fetchLeads();
-    fetchAllUsers();
   }, []);
-
-  const fetchAllUsers = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('fetch-user-display-names', {
-        body: { userIds: [] } // This will return all users from auth
-      });
-
-      if (!error && data) {
-        // Get all users from auth
-        const { data: authData, error: authError } = await supabase.functions.invoke('admin-list-users');
-        if (!authError && authData?.users) {
-          setAllUsers(authData.users);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching all users:', error);
-    }
-  };
 
   useEffect(() => {
     let filtered = leads.filter(lead =>
@@ -190,33 +161,6 @@ export const LeadTable = ({
     }
   };
 
-  const handleLeadOwnerChange = async (leadId: string, newOwnerId: string) => {
-    try {
-      const { error } = await supabase
-        .from('leads')
-        .update({ created_by: newOwnerId })
-        .eq('id', leadId);
-
-      if (error) throw error;
-
-      // Update local state
-      setLeads(prev => prev.map(lead => 
-        lead.id === leadId ? { ...lead, created_by: newOwnerId } : lead
-      ));
-
-      toast({
-        title: "Success",
-        description: "Lead owner updated successfully",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update lead owner",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleDelete = async (id: string) => {
     try {
       const { error } = await supabase
@@ -265,6 +209,14 @@ export const LeadTable = ({
 
   const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
 
+  // Memoize user IDs to prevent unnecessary re-fetches
+  const createdByIds = useMemo(() => {
+    return [...new Set(leads.map(l => l.created_by).filter(Boolean))];
+  }, [leads]);
+
+  // Use the optimized hook
+  const { displayNames } = useUserDisplayNames(createdByIds);
+
   const visibleColumns = columns.filter(col => col.visible);
   const pageLeads = getCurrentPageLeads();
 
@@ -274,6 +226,7 @@ export const LeadTable = ({
   };
 
   const handleConvertSuccess = async () => {
+    // Update the lead status to "Converted" immediately
     if (leadToConvert) {
       try {
         const { error } = await supabase
@@ -284,6 +237,7 @@ export const LeadTable = ({
         if (error) {
           console.error("Error updating lead status:", error);
         } else {
+          // Update local state immediately
           setLeads(prevLeads => 
             prevLeads.map(lead => 
               lead.id === leadToConvert.id 
@@ -356,6 +310,7 @@ export const LeadTable = ({
                     variant="outline"
                     size="sm"
                     onClick={() => {
+                      // Handle bulk convert to deal for selected leads
                       if (selectedLeads.length === 1) {
                         const lead = leads.find(l => l.id === selectedLeads[0]);
                         if (lead) handleConvertToDeal(lead);
@@ -405,26 +360,12 @@ export const LeadTable = ({
                           {lead[column.field as keyof Lead]}
                         </button>
                       ) : column.field === 'contact_owner' ? (
-                        <Select
-                          value={lead.created_by || ''}
-                          onValueChange={(value) => handleLeadOwnerChange(lead.id, value)}
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Select owner">
-                              {lead.created_by 
-                                ? displayNames[lead.created_by] || "Loading..."
-                                : 'No owner'
-                              }
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent className="bg-white z-50">
-                            {allUsers.map(user => (
-                              <SelectItem key={user.id} value={user.id}>
-                                {displayNames[user.id] || user.email || 'Unknown User'}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <span>
+                          {lead.created_by 
+                            ? displayNames[lead.created_by] || "Loading..."
+                            : '-'
+                          }
+                        </span>
                       ) : column.field === 'lead_status' && lead.lead_status ? (
                         <Badge variant={
                           lead.lead_status === 'New' ? 'secondary' : 
