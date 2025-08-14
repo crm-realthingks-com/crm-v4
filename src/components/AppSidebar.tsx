@@ -1,4 +1,3 @@
-
 import { 
   Home, 
   Users, 
@@ -11,7 +10,7 @@ import {
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -63,12 +62,19 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
     return user?.user_metadata?.full_name || user?.email || 'User';
   };
 
+  // Only toggle on Pin button click - removed auto-toggle behavior
   const togglePin = () => {
     if (isFixed) {
       onToggle?.(!sidebarOpen);
     } else {
       setIsPinned(!isPinned);
     }
+  };
+
+  // Handle menu item click without auto-toggling sidebar
+  const handleMenuItemClick = (url: string) => {
+    navigate(url);
+    // Removed auto-collapse behavior - sidebar state remains unchanged
   };
 
   return (
@@ -104,10 +110,10 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
           {menuItems.map((item) => {
             const active = isActive(item.url);
             const menuButton = (
-              <NavLink
-                to={item.url}
-                 className={`
-                  flex items-center rounded-lg relative transition-colors duration-200
+              <button
+                onClick={() => handleMenuItemClick(item.url)}
+                className={`
+                  w-full flex items-center rounded-lg relative transition-colors duration-200
                   ${active 
                     ? 'text-blue-700 bg-blue-100' 
                     : 'text-gray-600 hover:text-blue-700 hover:bg-blue-50'
@@ -148,7 +154,7 @@ export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProp
                     {item.title}
                   </span>
                 )}
-              </NavLink>
+              </button>
             );
 
             if (!sidebarOpen) {
