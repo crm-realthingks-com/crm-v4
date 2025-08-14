@@ -44,6 +44,9 @@ export const ConvertToDealModal = ({ open, onOpenChange, lead, onSuccess }: Conv
         throw new Error("User not authenticated");
       }
 
+      // Get the lead owner display name
+      const leadOwnerDisplayName = lead.created_by ? (displayNames[lead.created_by] || 'Unknown User') : '';
+
       // Ensure required fields are present and remove any undefined/null values that could cause UUID errors
       const dealToInsert = {
         deal_name: dealData.deal_name || `Deal for ${lead.lead_name}`,
@@ -51,7 +54,7 @@ export const ConvertToDealModal = ({ open, onOpenChange, lead, onSuccess }: Conv
         project_name: dealData.project_name || '',
         customer_name: dealData.customer_name || lead.company_name || '',
         lead_name: dealData.lead_name || lead.lead_name,
-        lead_owner: dealData.lead_owner || (lead.created_by ? displayNames[lead.created_by] || 'Unknown User' : ''),
+        lead_owner: leadOwnerDisplayName, // Use the display name instead of UUID
         region: dealData.region || lead.country || '',
         priority: dealData.priority || 3,
         created_by: user.id, // Ensure created_by is set for RLS
