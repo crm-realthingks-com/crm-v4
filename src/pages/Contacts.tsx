@@ -186,7 +186,7 @@ const Contacts = () => {
               <DropdownMenuItem asChild>
                 <label className="flex items-center cursor-pointer">
                   <Upload className="w-4 h-4 mr-2" />
-                  Import CSV
+                  Import
                   <Input
                     type="file"
                     accept=".csv"
