@@ -53,13 +53,11 @@ interface LeadModalProps {
 }
 
 const leadSources = [
+  "LinkedIn",
   "Website",
   "Referral", 
   "Social Media",
   "Email Campaign",
-  "Trade Show",
-  "Cold Call",
-  "LinkedIn",
   "Other"
 ];
 
