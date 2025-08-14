@@ -242,7 +242,7 @@ export const ContactTable = ({
                         <SelectTrigger className="w-40">
                           <SelectValue placeholder="Select owner">
                             {contact.contact_owner ? (
-                              displayNames[contact.contact_owner] || 'Unknown User'
+                              displayNames[contact.contact_owner] || 'Loading...'
                             ) : 'No owner'}
                           </SelectValue>
                         </SelectTrigger>

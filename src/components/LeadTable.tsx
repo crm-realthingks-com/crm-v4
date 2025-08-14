@@ -256,9 +256,9 @@ export const LeadTable = ({
                         <SelectTrigger className="w-40">
                           <SelectValue placeholder="Select owner">
                             {lead.contact_owner ? (
-                              displayNames[lead.contact_owner] || 'Unknown User'
+                              displayNames[lead.contact_owner] || 'Loading...'
                             ) : lead.created_by ? (
-                              displayNames[lead.created_by] || 'Unknown User'
+                              displayNames[lead.created_by] || 'Loading...'
                             ) : 'No owner'}
                           </SelectValue>
                         </SelectTrigger>
