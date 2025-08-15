@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,46 +7,36 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-interface User {
+interface AppUser {
   id: string;
-  email: string;
-  user_metadata: {
+  email?: string;
+  created_at?: string;
+  last_sign_in_at?: string;
+  user_metadata?: {
     full_name?: string;
     role?: string;
   };
+  banned_until?: string;
 }
 
 interface EditUserModalProps {
-  open: boolean;
+  user: AppUser;
+  isOpen: boolean;
   onClose: () => void;
-  user: User | null;
-  onSuccess: () => void;
+  onUserUpdated: () => void;
 }
 
-const EditUserModal = ({ open, onClose, user, onSuccess }: EditUserModalProps) => {
-  const [displayName, setDisplayName] = useState('');
+const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalProps) => {
+  const [displayName, setDisplayName] = useState(user.user_metadata?.full_name || '');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (user) {
-      setDisplayName(user.user_metadata?.full_name || '');
-    }
-  }, [user]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-    
     setLoading(true);
 
     try {
-      toast({
-        title: "Updating",
-        description: "Updating user display name...",
-      });
-
-      const { data, error } = await supabase.functions.invoke('user-admin', {
+      const { error } = await supabase.functions.invoke('user-admin', {
         method: 'PUT',
         body: {
           userId: user.id,
@@ -56,22 +46,18 @@ const EditUserModal = ({ open, onClose, user, onSuccess }: EditUserModalProps) =
 
       if (error) throw error;
 
-      if (data?.success) {
-        toast({
-          title: "Success",
-          description: "User display name updated successfully",
-        });
-        
-        onSuccess();
-        onClose();
-      } else {
-        throw new Error(data?.error || "Failed to update user display name");
-      }
-    } catch (error: any) {
+      toast({
+        title: "Success",
+        description: "User updated successfully",
+      });
+      
+      onUserUpdated();
+      onClose();
+    } catch (error) {
       console.error('Error updating user:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to update user display name",
+        description: "Failed to update user",
         variant: "destructive",
       });
     } finally {
@@ -80,26 +66,23 @@ const EditUserModal = ({ open, onClose, user, onSuccess }: EditUserModalProps) =
   };
 
   const handleClose = () => {
-    if (!loading) {
-      onClose();
-      setDisplayName('');
-    }
+    setDisplayName(user.user_metadata?.full_name || '');
+    onClose();
   };
 
-  if (!user) return null;
-
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit User Display Name</DialogTitle>
+          <DialogTitle>Edit User</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
-              value={user.email}
+              type="email"
+              value={user.email || ''}
               disabled
               className="bg-muted"
             />
@@ -111,18 +94,16 @@ const EditUserModal = ({ open, onClose, user, onSuccess }: EditUserModalProps) =
               id="displayName"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Enter full name"
-              required
-              disabled={loading}
+              placeholder="Full Name"
             />
           </div>
           
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
+            <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Updating...' : 'Update Display Name'}
+              {loading ? 'Updating...' : 'Update User'}
             </Button>
           </div>
         </form>
