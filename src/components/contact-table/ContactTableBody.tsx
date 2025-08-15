@@ -165,11 +165,13 @@ export const ContactTableBody = ({
       if (!contact.contact_owner) return '-';
       const displayName = displayNames[contact.contact_owner];
       console.log(`ContactTableBody: Getting display value for contact_owner ${contact.contact_owner}:`, displayName);
-      return displayName || "Loading...";
+      // Show the display name if available, otherwise show "Loading..." temporarily
+      return displayName && displayName !== "Unknown User" ? displayName : (displayName === "Unknown User" ? "Unknown User" : "Loading...");
     } else if (columnField === 'created_by') {
       if (!contact.created_by) return '-';
       const displayName = displayNames[contact.created_by];
-      return displayName || "Loading...";
+      // Show the display name if available, otherwise show "Loading..." temporarily
+      return displayName && displayName !== "Unknown User" ? displayName : (displayName === "Unknown User" ? "Unknown User" : "Loading...");
     } else if (columnField === 'lead_status' && contact.lead_status) {
       return (
         <Badge variant={contact.lead_status === 'Converted' ? 'default' : 'secondary'}>

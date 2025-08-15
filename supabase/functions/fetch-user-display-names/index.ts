@@ -56,7 +56,10 @@ Deno.serve(async (req) => {
 
     if (!profilesError && profiles) {
       profiles.forEach((profile) => {
-        const displayName = profile.full_name || profile["Email ID"] || "Unknown User";
+        // Prioritize full_name over email, and provide a clean fallback
+        const displayName = profile.full_name && profile.full_name.trim() !== '' 
+          ? profile.full_name 
+          : (profile["Email ID"]?.split('@')[0] || "Unknown User");
         userDisplayNames[profile.id] = displayName;
         console.log(`fetch-user-display-names: Found profile for ${profile.id}: ${displayName}`);
       });
@@ -74,9 +77,10 @@ Deno.serve(async (req) => {
         if (!authError && authUsers?.users) {
           authUsers.users.forEach((user) => {
             if (missingUserIds.includes(user.id)) {
-              const displayName = user.user_metadata?.full_name || 
-                               user.user_metadata?.display_name || 
-                               user.email ||
+              // Prioritize metadata full_name, then display_name, then clean email
+              const displayName = user.user_metadata?.full_name?.trim() || 
+                               user.user_metadata?.display_name?.trim() || 
+                               user.email?.split('@')[0] ||
                                "Unknown User";
               userDisplayNames[user.id] = displayName;
               console.log(`fetch-user-display-names: Found auth user for ${user.id}: ${displayName}`);

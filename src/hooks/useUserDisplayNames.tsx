@@ -97,7 +97,10 @@ export const useUserDisplayNames = (userIds: string[]) => {
 
           if (!profilesError && profilesData) {
             profilesData.forEach((profile) => {
-              const displayName = profile.full_name || profile["Email ID"] || "Unknown User";
+              // Prioritize full_name over email, and provide a clean fallback
+              const displayName = profile.full_name && profile.full_name.trim() !== '' 
+                ? profile.full_name 
+                : (profile["Email ID"]?.split('@')[0] || "Unknown User");
               newDisplayNames[profile.id] = displayName;
               displayNameCache.set(profile.id, displayName);
             });
