@@ -97,10 +97,17 @@ export const useUserDisplayNames = (userIds: string[]) => {
 
           if (!profilesError && profilesData) {
             profilesData.forEach((profile) => {
-              // Prioritize full_name over email, and provide a clean fallback
-              const displayName = profile.full_name && profile.full_name.trim() !== '' 
-                ? profile.full_name 
-                : (profile["Email ID"]?.split('@')[0] || "Unknown User");
+              // Only use profile full_name if it doesn't look like an email and is different from Email ID
+              let displayName = "Unknown User";
+              
+              if (profile.full_name?.trim() && 
+                  !profile.full_name.includes('@') &&
+                  profile.full_name !== profile["Email ID"]) {
+                displayName = profile.full_name.trim();
+              } else if (profile["Email ID"]) {
+                displayName = profile["Email ID"].split('@')[0];
+              }
+              
               newDisplayNames[profile.id] = displayName;
               displayNameCache.set(profile.id, displayName);
             });

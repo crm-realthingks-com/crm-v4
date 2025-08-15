@@ -46,49 +46,66 @@ Deno.serve(async (req) => {
 
     const userDisplayNames: Record<string, string> = {};
 
-    // First try to get from profiles table
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, full_name, "Email ID"')
-      .in('id', userIds);
-
-    console.log('fetch-user-display-names: Profiles query result:', { profiles, profilesError });
-
-    if (!profilesError && profiles) {
-      profiles.forEach((profile) => {
-        // Prioritize full_name over email, and provide a clean fallback
-        const displayName = profile.full_name && profile.full_name.trim() !== '' 
-          ? profile.full_name 
-          : (profile["Email ID"]?.split('@')[0] || "Unknown User");
-        userDisplayNames[profile.id] = displayName;
-        console.log(`fetch-user-display-names: Found profile for ${profile.id}: ${displayName}`);
-      });
+    // First, try to get from auth.users to get the actual display names
+    console.log('fetch-user-display-names: Fetching from auth.users first');
+    
+    try {
+      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+      
+      if (!authError && authUsers?.users) {
+        authUsers.users.forEach((user) => {
+          if (userIds.includes(user.id)) {
+            // Prioritize metadata full_name, then display_name, then clean email
+            let displayName = "Unknown User";
+            
+            if (user.user_metadata?.full_name?.trim() && 
+                !user.user_metadata.full_name.includes('@')) {
+              displayName = user.user_metadata.full_name.trim();
+            } else if (user.user_metadata?.display_name?.trim() && 
+                       !user.user_metadata.display_name.includes('@')) {
+              displayName = user.user_metadata.display_name.trim();
+            } else if (user.email) {
+              displayName = user.email.split('@')[0];
+            }
+            
+            userDisplayNames[user.id] = displayName;
+            console.log(`fetch-user-display-names: Found auth user for ${user.id}: ${displayName}`);
+          }
+        });
+      }
+    } catch (authError) {
+      console.error('fetch-user-display-names: Auth query failed:', authError);
     }
 
-    // For any missing users, try to get from auth.users
+    // For any missing users, try to get from profiles table as fallback
     const missingUserIds = userIds.filter((id: string) => !userDisplayNames[id]);
     
     if (missingUserIds.length > 0) {
-      console.log('fetch-user-display-names: Fetching missing users from auth:', missingUserIds);
+      console.log('fetch-user-display-names: Fetching missing users from profiles:', missingUserIds);
       
-      try {
-        const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
-        
-        if (!authError && authUsers?.users) {
-          authUsers.users.forEach((user) => {
-            if (missingUserIds.includes(user.id)) {
-              // Prioritize metadata full_name, then display_name, then clean email
-              const displayName = user.user_metadata?.full_name?.trim() || 
-                               user.user_metadata?.display_name?.trim() || 
-                               user.email?.split('@')[0] ||
-                               "Unknown User";
-              userDisplayNames[user.id] = displayName;
-              console.log(`fetch-user-display-names: Found auth user for ${user.id}: ${displayName}`);
-            }
-          });
-        }
-      } catch (authError) {
-        console.error('fetch-user-display-names: Auth query failed:', authError);
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, "Email ID"')
+        .in('id', missingUserIds);
+
+      console.log('fetch-user-display-names: Profiles query result:', { profiles, profilesError });
+
+      if (!profilesError && profiles) {
+        profiles.forEach((profile) => {
+          // Only use profile full_name if it doesn't look like an email and is different from Email ID
+          let displayName = "Unknown User";
+          
+          if (profile.full_name?.trim() && 
+              !profile.full_name.includes('@') &&
+              profile.full_name !== profile["Email ID"]) {
+            displayName = profile.full_name.trim();
+          } else if (profile["Email ID"]) {
+            displayName = profile["Email ID"].split('@')[0];
+          }
+          
+          userDisplayNames[profile.id] = displayName;
+          console.log(`fetch-user-display-names: Found profile for ${profile.id}: ${displayName}`);
+        });
       }
     }
 
