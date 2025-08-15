@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { MoreHorizontal, Plus, RefreshCw } from "lucide-react";
+import { useSecurityContext } from "@/components/SecurityProvider";
+import { MoreHorizontal, Plus, RefreshCw, Shield, ShieldAlert } from "lucide-react";
 import { format } from "date-fns";
 import UserModal from "./UserModal";
 import EditUserModal from "./EditUserModal";
@@ -20,11 +22,11 @@ interface User {
   email: string;
   user_metadata: {
     full_name?: string;
-    role?: string;
   };
   created_at: string;
   last_sign_in_at: string | null;
   banned_until?: string | null;
+  role?: string;
 }
 
 const UserManagement = () => {
@@ -39,10 +41,11 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
   const { refreshUser } = useAuth();
+  const { hasAdminAccess } = useSecurityContext();
 
   const fetchUsers = useCallback(async () => {
     try {
-      console.log('Fetching users with new function...');
+      console.log('Fetching users with server-controlled roles...');
       
       const { data, error } = await supabase.functions.invoke('user-admin', {
         method: 'GET'
@@ -53,8 +56,32 @@ const UserManagement = () => {
         throw error;
       }
       
-      console.log('Users fetched successfully:', data?.users?.length || 0);
-      setUsers(data.users || []);
+      // Fetch roles for all users
+      const userIds = data.users?.map((user: any) => user.id) || [];
+      
+      let userRoles: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: rolesData } = await supabase
+          .from('user_roles')
+          .select('user_id, role')
+          .in('user_id', userIds);
+        
+        if (rolesData) {
+          userRoles = rolesData.reduce((acc: Record<string, string>, item: any) => {
+            acc[item.user_id] = item.role;
+            return acc;
+          }, {});
+        }
+      }
+      
+      // Combine user data with roles
+      const usersWithRoles = data.users?.map((user: any) => ({
+        ...user,
+        role: userRoles[user.id] || 'user'
+      })) || [];
+      
+      console.log('Users fetched successfully:', usersWithRoles.length);
+      setUsers(usersWithRoles);
     } catch (error: any) {
       console.error('Error fetching users:', error);
       toast({
@@ -168,6 +195,17 @@ const UserManagement = () => {
     }
   }, []);
 
+  const getRoleIcon = useCallback((role: string) => {
+    switch (role?.toLowerCase()) {
+      case 'admin':
+        return <Shield className="h-3 w-3" />;
+      case 'manager':
+        return <ShieldAlert className="h-3 w-3" />;
+      default:
+        return null;
+    }
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -177,6 +215,20 @@ const UserManagement = () => {
     
     loadData();
   }, [fetchUsers]);
+
+  // Check if user has admin access
+  if (!hasAdminAccess) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Access Denied</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">You don't have permission to access user management.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (loading) {
     return (
@@ -199,9 +251,12 @@ const UserManagement = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>User Management</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                User Management
+              </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Manage user accounts, roles, and permissions
+                Manage user accounts, roles, and permissions with server-controlled security
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -242,8 +297,9 @@ const UserManagement = () => {
                   </TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    <Badge variant={getRoleBadgeVariant(user.user_metadata?.role || 'user')}>
-                      {user.user_metadata?.role || 'user'}
+                    <Badge variant={getRoleBadgeVariant(user.role || 'user')} className="flex items-center gap-1 w-fit">
+                      {getRoleIcon(user.role || 'user')}
+                      {user.role || 'user'}
                     </Badge>
                   </TableCell>
                   <TableCell>

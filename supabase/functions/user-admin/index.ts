@@ -50,10 +50,15 @@ serve(async (req) => {
       );
     }
 
-    // Check if user has admin role
-    const isAdmin = user.user.user_metadata?.role === 'admin';
-    if (!isAdmin) {
-      console.error('User is not admin:', user.user.email);
+    // Check if user has admin role using server-controlled roles
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.user.id)
+      .single();
+
+    if (roleError || !roleData || roleData.role !== 'admin') {
+      console.error('User is not admin:', user.user.email, 'Role:', roleData?.role);
       return new Response(
         JSON.stringify({ error: 'Admin access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -144,8 +149,7 @@ serve(async (req) => {
         email,
         password,
         user_metadata: {
-          full_name: displayName,
-          role: role || 'user'
+          full_name: displayName
         },
         email_confirm: true
       });
@@ -158,9 +162,10 @@ serve(async (req) => {
         );
       }
 
-      // Create profile record
+      // Create profile record and set role
       if (data.user) {
         try {
+          // Create profile
           const { error: profileError } = await supabaseAdmin
             .from('profiles')
             .insert({
@@ -174,8 +179,23 @@ serve(async (req) => {
           } else {
             console.log('Profile created successfully for:', email);
           }
-        } catch (profileErr) {
-          console.warn('Profile creation error:', profileErr);
+
+          // Set user role using server-controlled system
+          const { error: roleError } = await supabaseAdmin
+            .from('user_roles')
+            .insert({
+              user_id: data.user.id,
+              role: role || 'user',
+              assigned_by: user.user.id
+            });
+
+          if (roleError) {
+            console.warn('Role assignment failed:', roleError);
+          } else {
+            console.log('Role assigned successfully:', role || 'user');
+          }
+        } catch (err) {
+          console.warn('Setup error:', err);
         }
       }
 
@@ -206,20 +226,12 @@ serve(async (req) => {
 
       console.log('Updating user:', userId, 'action:', action, 'role:', role, 'displayName:', displayName);
 
-      // Prepare update data
+      // Prepare update data for auth.users
       let updateData: any = {};
 
-      // Handle role and display name updates
-      if (displayName !== undefined || role !== undefined) {
-        updateData.user_metadata = {};
-        
-        if (displayName !== undefined) {
-          updateData.user_metadata.full_name = displayName;
-        }
-        
-        if (role !== undefined) {
-          updateData.user_metadata.role = role;
-        }
+      // Handle display name updates
+      if (displayName !== undefined) {
+        updateData.user_metadata = { full_name: displayName };
       }
 
       // Handle user activation/deactivation
@@ -231,22 +243,25 @@ serve(async (req) => {
         console.log('Deactivating user:', userId);
       }
 
-      console.log('Update data prepared:', JSON.stringify(updateData, null, 2));
+      // Update auth user if needed
+      if (Object.keys(updateData).length > 0) {
+        console.log('Update data prepared:', JSON.stringify(updateData, null, 2));
 
-      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
-        userId,
-        updateData
-      );
-
-      if (error) {
-        console.error('Error updating user:', error);
-        return new Response(
-          JSON.stringify({ error: `User update failed: ${error.message}` }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
+          userId,
+          updateData
         );
+
+        if (error) {
+          console.error('Error updating user:', error);
+          return new Response(
+            JSON.stringify({ error: `User update failed: ${error.message}` }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
 
-      // Update profile record if display name changed
+      // Update profile if display name changed
       if (displayName !== undefined) {
         try {
           const { error: profileError } = await supabaseAdmin
@@ -264,11 +279,32 @@ serve(async (req) => {
         }
       }
 
+      // Update role using server-controlled system
+      if (role !== undefined) {
+        try {
+          const { error: roleError } = await supabaseAdmin
+            .from('user_roles')
+            .update({ 
+              role,
+              assigned_by: user.user.id,
+              assigned_at: new Date().toISOString()
+            })
+            .eq('user_id', userId);
+
+          if (roleError) {
+            console.warn('Role update failed:', roleError);
+          } else {
+            console.log('Role updated successfully for user:', userId, 'to:', role);
+          }
+        } catch (roleErr) {
+          console.warn('Role update error:', roleErr);
+        }
+      }
+
       console.log('User updated successfully:', userId);
       return new Response(
         JSON.stringify({ 
           success: true,
-          user: data.user,
           message: 'User updated successfully'
         }),
         { 
@@ -292,7 +328,19 @@ serve(async (req) => {
       console.log('Deleting user:', userId);
 
       try {
-        // First delete profile record
+        // First delete role record
+        const { error: roleError } = await supabaseAdmin
+          .from('user_roles')
+          .delete()
+          .eq('user_id', userId);
+
+        if (roleError) {
+          console.warn('Role deletion warning:', roleError.message);
+        } else {
+          console.log('Role deleted successfully for user:', userId);
+        }
+
+        // Then delete profile record
         const { error: profileError } = await supabaseAdmin
           .from('profiles')
           .delete()
@@ -304,7 +352,7 @@ serve(async (req) => {
           console.log('Profile deleted successfully for user:', userId);
         }
 
-        // Then delete the auth user
+        // Finally delete the auth user
         const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
         if (authDeleteError) {
