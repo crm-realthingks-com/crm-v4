@@ -96,7 +96,7 @@ const Leads = () => {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">
+              <Button variant="default">
                 Actions
                 <ChevronDown className="w-4 h-4 ml-2" />
               </Button>

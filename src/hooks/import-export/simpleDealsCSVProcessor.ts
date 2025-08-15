@@ -1,5 +1,5 @@
 
-import { GenericCSVExporter } from './genericCSVExporter';
+import { GenericCSVProcessor } from './genericCSVProcessor';
 
 // Exact field order as specified
 const DEALS_EXPORT_FIELDS = [
@@ -15,21 +15,26 @@ const DEALS_EXPORT_FIELDS = [
   'rfq_received_date', 'proposal_due_date', 'rfq_status'
 ];
 
-export class DealsCSVExporter {
-  private genericExporter: GenericCSVExporter;
+interface DealsProcessOptions {
+  userId: string;
+  onProgress?: (processed: number, total: number) => void;
+}
+
+// Simplified CSV processor using generic logic
+export class SimpleDealsCSVProcessor {
+  private genericProcessor: GenericCSVProcessor;
 
   constructor() {
-    this.genericExporter = new GenericCSVExporter();
+    this.genericProcessor = new GenericCSVProcessor();
   }
   
-  async exportToCSV(deals: any[], filename: string) {
-    console.log('DealsCSVExporter: Starting export with centralized logic');
+  async processCSV(csvText: string, options: DealsProcessOptions) {
+    console.log('SimpleDealsCSVProcessor: Starting CSV processing with centralized logic');
     
-    if (!deals || deals.length === 0) {
-      throw new Error('No deals to export');
-    }
-
-    await this.genericExporter.exportToCSV(deals, filename, DEALS_EXPORT_FIELDS);
-    console.log('DealsCSVExporter: Export completed successfully');
+    return await this.genericProcessor.processCSV(csvText, {
+      tableName: 'deals',
+      userId: options.userId,
+      onProgress: options.onProgress
+    });
   }
 }

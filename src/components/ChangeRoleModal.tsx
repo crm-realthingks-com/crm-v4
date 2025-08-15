@@ -41,7 +41,12 @@ const ChangeRoleModal = ({ open, onClose, user, onSuccess }: ChangeRoleModalProp
     setLoading(true);
 
     try {
-      const { error } = await supabase.functions.invoke('admin-users', {
+      toast({
+        title: "Updating Role",
+        description: "Updating user role...",
+      });
+
+      const { data, error } = await supabase.functions.invoke('user-admin', {
         method: 'PUT',
         body: {
           userId: user.id,
@@ -51,18 +56,22 @@ const ChangeRoleModal = ({ open, onClose, user, onSuccess }: ChangeRoleModalProp
 
       if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: "User role updated successfully",
-      });
-      
-      onSuccess();
-      onClose();
-    } catch (error) {
+      if (data?.success) {
+        toast({
+          title: "Success",
+          description: "User role updated successfully. Changes will take effect immediately.",
+        });
+        
+        onSuccess();
+        onClose();
+      } else {
+        throw new Error(data?.error || "Failed to update user role");
+      }
+    } catch (error: any) {
       console.error('Error updating user role:', error);
       toast({
         title: "Error",
-        description: "Failed to update user role",
+        description: error.message || "Failed to update user role",
         variant: "destructive",
       });
     } finally {
@@ -70,10 +79,17 @@ const ChangeRoleModal = ({ open, onClose, user, onSuccess }: ChangeRoleModalProp
     }
   };
 
+  const handleClose = () => {
+    if (!loading) {
+      onClose();
+      setRole('user');
+    }
+  };
+
   if (!user) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Change User Role</DialogTitle>
@@ -89,7 +105,7 @@ const ChangeRoleModal = ({ open, onClose, user, onSuccess }: ChangeRoleModalProp
           
           <div className="space-y-2">
             <Label htmlFor="role">New Role</Label>
-            <Select value={role} onValueChange={setRole}>
+            <Select value={role} onValueChange={setRole} disabled={loading}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -102,7 +118,7 @@ const ChangeRoleModal = ({ open, onClose, user, onSuccess }: ChangeRoleModalProp
           </div>
           
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>

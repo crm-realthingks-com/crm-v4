@@ -7,7 +7,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { MoreHorizontal, Plus, RefreshCw, RotateCcw } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { MoreHorizontal, Plus, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import UserModal from "./UserModal";
 import EditUserModal from "./EditUserModal";
@@ -29,36 +30,29 @@ interface User {
 const UserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
+  const { refreshUser } = useAuth();
 
   const fetchUsers = useCallback(async () => {
     try {
-      setLoading(true);
-      console.log('Fetching users...');
+      console.log('Fetching users with new function...');
       
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("No valid session found. Please log in again.");
-      }
-      
-      const { data, error } = await supabase.functions.invoke('admin-users', {
+      const { data, error } = await supabase.functions.invoke('user-admin', {
         method: 'GET'
       });
       
       if (error) {
         console.error('Error fetching users:', error);
-        if (error.message?.includes('Invalid token') || error.message?.includes('Session not found')) {
-          throw new Error("Your session has expired. Please refresh the page and log in again.");
-        }
         throw error;
       }
       
-      console.log('Users fetched successfully:', data.users?.length || 0);
+      console.log('Users fetched successfully:', data?.users?.length || 0);
       setUsers(data.users || []);
     } catch (error: any) {
       console.error('Error fetching users:', error);
@@ -67,36 +61,39 @@ const UserManagement = () => {
         description: error.message || "Failed to fetch users",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   }, [toast]);
 
-  const syncWithAuth = useCallback(async () => {
+  const syncAndRefresh = useCallback(async () => {
     try {
-      toast({
-        title: "Syncing",
-        description: "Refreshing session and syncing with Supabase Auth...",
-      });
+      setRefreshing(true);
       
+      // Refresh session first
       const { error: refreshError } = await supabase.auth.refreshSession();
       if (refreshError) {
-        throw new Error("Failed to refresh session. Please log in again.");
+        throw new Error("Failed to refresh session");
       }
       
+      // Fetch latest users
       await fetchUsers();
+      
+      // Refresh current user data
+      await refreshUser();
+      
       toast({
         title: "Success",
-        description: "Successfully synced with Supabase Auth",
+        description: "User data synced successfully",
       });
     } catch (error: any) {
       toast({
-        title: "Error", 
-        description: error.message || "Failed to sync with auth",
+        title: "Sync Error", 
+        description: error.message || "Failed to sync data",
         variant: "destructive",
       });
+    } finally {
+      setRefreshing(false);
     }
-  }, [fetchUsers, toast]);
+  }, [fetchUsers, refreshUser, toast]);
 
   const handleEditUser = useCallback((user: User) => {
     setSelectedUser(user);
@@ -111,7 +108,13 @@ const UserManagement = () => {
   const handleToggleUserStatus = useCallback(async (user: User) => {
     try {
       const action = user.banned_until ? 'activate' : 'deactivate';
-      const { error } = await supabase.functions.invoke('admin-users', {
+      
+      toast({
+        title: "Processing",
+        description: `${action === 'activate' ? 'Activating' : 'Deactivating'} user...`,
+      });
+
+      const { data, error } = await supabase.functions.invoke('user-admin', {
         method: 'PUT',
         body: {
           userId: user.id,
@@ -127,20 +130,26 @@ const UserManagement = () => {
       });
       
       await fetchUsers();
-    } catch (error) {
+      await refreshUser();
+    } catch (error: any) {
       console.error('Error updating user status:', error);
       toast({
         title: "Error",
-        description: "Failed to update user status",
+        description: error.message || "Failed to update user status",
         variant: "destructive",
       });
     }
-  }, [fetchUsers, toast]);
+  }, [fetchUsers, refreshUser, toast]);
 
   const handleDeleteUser = useCallback((user: User) => {
     setSelectedUser(user);
     setShowDeleteDialog(true);
   }, []);
+
+  const handleUserSuccess = useCallback(async () => {
+    await fetchUsers();
+    await refreshUser();
+  }, [fetchUsers, refreshUser]);
 
   const getRoleBadgeVariant = useCallback((role: string) => {
     switch (role?.toLowerCase()) {
@@ -154,7 +163,13 @@ const UserManagement = () => {
   }, []);
 
   useEffect(() => {
-    fetchUsers();
+    const loadData = async () => {
+      setLoading(true);
+      await fetchUsers();
+      setLoading(false);
+    };
+    
+    loadData();
   }, [fetchUsers]);
 
   if (loading) {
@@ -184,13 +199,14 @@ const UserManagement = () => {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={syncWithAuth}>
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Sync with Auth
-              </Button>
-              <Button variant="outline" size="sm" onClick={fetchUsers}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={syncAndRefresh}
+                disabled={refreshing}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Syncing...' : 'Sync & Refresh'}
               </Button>
               <Button size="sm" onClick={() => setShowAddModal(true)}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -206,6 +222,7 @@ const UserManagement = () => {
                 <TableHead>Display Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Last Sign In</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -221,6 +238,11 @@ const UserManagement = () => {
                   <TableCell>
                     <Badge variant={getRoleBadgeVariant(user.user_metadata?.role || 'user')}>
                       {user.user_metadata?.role || 'user'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={user.banned_until ? 'destructive' : 'default'}>
+                      {user.banned_until ? 'Deactivated' : 'Active'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -274,28 +296,28 @@ const UserManagement = () => {
       <UserModal 
         open={showAddModal} 
         onClose={() => setShowAddModal(false)}
-        onSuccess={fetchUsers}
+        onSuccess={handleUserSuccess}
       />
       
       <EditUserModal 
         open={showEditModal} 
         onClose={() => setShowEditModal(false)}
         user={selectedUser}
-        onSuccess={fetchUsers}
+        onSuccess={handleUserSuccess}
       />
       
       <ChangeRoleModal 
         open={showRoleModal} 
         onClose={() => setShowRoleModal(false)}
         user={selectedUser}
-        onSuccess={fetchUsers}
+        onSuccess={handleUserSuccess}
       />
       
       <DeleteUserDialog 
         open={showDeleteDialog} 
         onClose={() => setShowDeleteDialog(false)}
         user={selectedUser}
-        onSuccess={fetchUsers}
+        onSuccess={handleUserSuccess}
       />
     </>
   );

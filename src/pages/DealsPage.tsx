@@ -55,22 +55,40 @@ const DealsPage = () => {
 
   const handleUpdateDeal = async (dealId: string, updates: Partial<Deal>) => {
     try {
-      const { error } = await supabase
+      console.log("=== HANDLE UPDATE DEAL DEBUG ===");
+      console.log("Deal ID:", dealId);
+      console.log("Updates:", updates);
+      
+      const { data, error } = await supabase
         .from('deals')
         .update({ ...updates, modified_at: new Date().toISOString() })
-        .eq('id', dealId);
+        .eq('id', dealId)
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase update error:", error);
+        throw error;
+      }
 
+      console.log("Update successful, data:", data);
+      
       setDeals(prev => prev.map(deal => 
         deal.id === dealId ? { ...deal, ...updates } : deal
       ));
+      
+      toast({
+        title: "Success",
+        description: "Deal updated successfully",
+      });
     } catch (error) {
+      console.error("Update deal error:", error);
       toast({
         title: "Error",
-        description: "Failed to update deal",
+        description: `Failed to update deal: ${error.message || 'Unknown error'}`,
         variant: "destructive",
       });
+      throw error;
     }
   };
 
@@ -133,66 +151,11 @@ const DealsPage = () => {
   };
 
   const handleImportDeals = async (importedDeals: (Partial<Deal> & { shouldUpdate?: boolean })[]) => {
-    try {
-      let createdCount = 0;
-      let updatedCount = 0;
-
-      for (const importDeal of importedDeals) {
-        const { shouldUpdate, ...dealData } = importDeal;
-        
-        const existingDeal = deals.find(d => 
-          (dealData.id && d.id === dealData.id) || 
-          (dealData.project_name && d.project_name === dealData.project_name)
-        );
-
-        if (existingDeal) {
-          const { data, error } = await supabase
-            .from('deals')
-            .update({
-              ...dealData,
-              modified_by: user?.id,
-              deal_name: dealData.project_name || existingDeal.deal_name
-            })
-            .eq('id', existingDeal.id)
-            .select()
-            .single();
-
-          if (error) throw error;
-          updatedCount++;
-        } else {
-          const newDealData = {
-            ...dealData,
-            stage: dealData.stage || 'Lead' as const,
-            created_by: user?.id,
-            modified_by: user?.id,
-            deal_name: dealData.project_name || `Imported Deal ${Date.now()}`
-          };
-
-          const { data, error } = await supabase
-            .from('deals')
-            .insert(newDealData)
-            .select()
-            .single();
-
-          if (error) throw error;
-          createdCount++;
-        }
-      }
-
-      await fetchDeals();
-      
-      toast({
-        title: "Import successful",
-        description: `Created ${createdCount} new deals, updated ${updatedCount} existing deals`,
-      });
-    } catch (error) {
-      console.error('Import error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to import deals. Please check the CSV format.",
-        variant: "destructive",
-      });
-    }
+    // This function is kept for compatibility but the actual import logic is now handled
+    // by the simplified CSV processor in useDealsImportExport hook
+    console.log('handleImportDeals called with:', importedDeals.length, 'deals');
+    // Refresh data after import
+    await fetchDeals();
   };
 
   const handleCreateDeal = (stage: DealStage) => {
@@ -223,6 +186,45 @@ const DealsPage = () => {
   useEffect(() => {
     if (user) {
       fetchDeals();
+
+      // Set up real-time subscription
+      const channel = supabase
+        .channel('deals-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'deals'
+          },
+          (payload) => {
+            console.log('Real-time deal change:', payload);
+            
+            if (payload.eventType === 'INSERT') {
+              setDeals(prev => [payload.new as Deal, ...prev]);
+            } else if (payload.eventType === 'UPDATE') {
+              setDeals(prev => prev.map(deal => 
+                deal.id === payload.new.id ? { ...deal, ...payload.new } as Deal : deal
+              ));
+            } else if (payload.eventType === 'DELETE') {
+              setDeals(prev => prev.filter(deal => deal.id !== payload.old.id));
+            }
+          }
+        )
+        .subscribe();
+
+      // Listen for custom import events
+      const handleImportEvent = () => {
+        console.log('DealsPage: Received deals-data-updated event, refreshing...');
+        fetchDeals();
+      };
+      
+      window.addEventListener('deals-data-updated', handleImportEvent);
+
+      return () => {
+        supabase.removeChannel(channel);
+        window.removeEventListener('deals-data-updated', handleImportEvent);
+      };
     }
   }, [user]);
 

@@ -22,8 +22,11 @@ export const useUserDisplayNames = (userIds: string[]) => {
     }
 
     // Check if userIds actually changed to prevent unnecessary fetches
-    const hasChanged = validUserIds.length !== previousUserIds.current.length || 
-      !validUserIds.every(id => previousUserIds.current.includes(id));
+    const sortedCurrentIds = [...validUserIds].sort();
+    const sortedPreviousIds = [...previousUserIds.current].sort();
+    
+    const hasChanged = sortedCurrentIds.length !== sortedPreviousIds.length || 
+      !sortedCurrentIds.every((id, index) => id === sortedPreviousIds[index]);
     
     if (!hasChanged) return;
 
@@ -129,7 +132,7 @@ export const useUserDisplayNames = (userIds: string[]) => {
     };
 
     fetchDisplayNames();
-  }, [userIds]);
+  }, [userIds.join(',')]); // Use join to create a stable dependency
 
   return { displayNames, loading };
 };

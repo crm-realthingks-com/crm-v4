@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Admin users function called with method:', req.method);
+    console.log('User admin function called with method:', req.method);
 
     // Create admin client
     const supabaseAdmin = createClient(
@@ -51,9 +51,10 @@ serve(async (req) => {
 
     console.log('User authenticated:', user.user.email);
 
+    // GET - List all users
     if (req.method === 'GET') {
-      // List all users
-      console.log('Listing users...');
+      console.log('Fetching users list...');
+      
       const { data, error } = await supabaseAdmin.auth.admin.listUsers();
 
       if (error) {
@@ -64,7 +65,7 @@ serve(async (req) => {
         );
       }
 
-      console.log('Users fetched successfully:', data.users.length);
+      console.log('Users fetched successfully:', data?.users?.length || 0);
       return new Response(
         JSON.stringify({ users: data.users }),
         { 
@@ -74,8 +75,8 @@ serve(async (req) => {
       );
     }
 
+    // POST - Create new user
     if (req.method === 'POST') {
-      // Create new user
       const { email, displayName, role, password } = await req.json();
       console.log('Creating user:', email, 'with role:', role);
 
@@ -97,6 +98,23 @@ serve(async (req) => {
         );
       }
 
+      // Create profile record
+      try {
+        const { error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .insert({
+            id: data.user?.id,
+            full_name: displayName,
+            'Email ID': email
+          });
+
+        if (profileError) {
+          console.warn('Profile creation failed:', profileError);
+        }
+      } catch (profileErr) {
+        console.warn('Profile creation error:', profileErr);
+      }
+
       console.log('User created successfully:', data.user?.email);
       return new Response(
         JSON.stringify({ user: data.user }),
@@ -107,15 +125,19 @@ serve(async (req) => {
       );
     }
 
+    // PUT - Update user
     if (req.method === 'PUT') {
-      // Update user
       const { userId, displayName, role, action } = await req.json();
-      console.log('Updating user:', userId, 'action:', action);
+      console.log('Updating user:', userId, 'action:', action, 'role:', role);
 
+      // Prepare update data
       let updateData: any = {};
 
       if (displayName !== undefined) {
-        updateData.user_metadata = { full_name: displayName };
+        updateData.user_metadata = { 
+          ...updateData.user_metadata,
+          full_name: displayName 
+        };
       }
 
       if (role !== undefined) {
@@ -131,6 +153,8 @@ serve(async (req) => {
         updateData.ban_duration = '876000h';
       }
 
+      console.log('Update data prepared:', updateData);
+
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
         userId,
         updateData
@@ -144,9 +168,29 @@ serve(async (req) => {
         );
       }
 
-      console.log('User updated successfully:', data.user?.email);
+      // Update profile record if display name changed
+      if (displayName !== undefined) {
+        try {
+          const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .update({ full_name: displayName })
+            .eq('id', userId);
+
+          if (profileError) {
+            console.warn('Profile update failed:', profileError);
+          }
+        } catch (profileErr) {
+          console.warn('Profile update error:', profileErr);
+        }
+      }
+
+      console.log('User updated successfully');
       return new Response(
-        JSON.stringify({ user: data.user }),
+        JSON.stringify({ 
+          success: true,
+          user: data.user,
+          message: 'User updated successfully'
+        }),
         { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -154,29 +198,68 @@ serve(async (req) => {
       );
     }
 
+    // DELETE - Delete user
     if (req.method === 'DELETE') {
-      // Delete user
       const { userId } = await req.json();
-      console.log('Deleting user:', userId);
-
-      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
-
-      if (error) {
-        console.error('Error deleting user:', error);
+      
+      if (!userId) {
+        console.error('No userId provided for deletion');
         return new Response(
-          JSON.stringify({ error: error.message }),
+          JSON.stringify({ error: 'User ID is required for deletion' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log('User deleted successfully');
-      return new Response(
-        JSON.stringify({ success: true }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      console.log('Attempting to delete user:', userId);
+
+      try {
+        // First delete profile record
+        const { error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .delete()
+          .eq('id', userId);
+
+        if (profileError) {
+          console.warn('Profile deletion warning:', profileError.message);
+        } else {
+          console.log('Profile deleted successfully for user:', userId);
         }
-      );
+
+        // Then delete the auth user
+        const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+
+        if (authDeleteError) {
+          console.error('Error deleting auth user:', authDeleteError);
+          return new Response(
+            JSON.stringify({ 
+              error: `Failed to delete user: ${authDeleteError.message}` 
+            }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('User deleted successfully:', userId);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'User deleted successfully',
+            userId: userId 
+          }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+
+      } catch (deleteError) {
+        console.error('Unexpected error during user deletion:', deleteError);
+        return new Response(
+          JSON.stringify({ 
+            error: `Unexpected error during deletion: ${deleteError.message || 'Unknown error'}` 
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     return new Response(
@@ -185,9 +268,12 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Unexpected error:', error);
+    console.error('Unexpected error in user-admin function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: error.message || 'Unknown error occurred'
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

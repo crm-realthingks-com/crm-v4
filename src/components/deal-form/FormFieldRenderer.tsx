@@ -24,7 +24,7 @@ interface FormFieldRendererProps {
 
 export const FormFieldRenderer = ({ field, value, onChange, onLeadSelect, error }: FormFieldRendererProps) => {
   const [leadOwnerIds, setLeadOwnerIds] = useState<string[]>([]);
-  const { displayNames } = useUserDisplayNames(leadOwnerIds);
+  const { displayNames, loading } = useUserDisplayNames(leadOwnerIds);
 
   useEffect(() => {
     if (field === 'lead_owner') {
@@ -233,21 +233,11 @@ export const FormFieldRenderer = ({ field, value, onChange, onLeadSelect, error 
 
       case 'lead_owner':
         return (
-          <Select
-            value={value?.toString() || ''}
-            onValueChange={(val) => onChange(field, val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select lead owner" />
-            </SelectTrigger>
-            <SelectContent>
-              {leadOwnerIds.map(userId => (
-                <SelectItem key={userId} value={displayNames[userId] || 'Unknown User'}>
-                  {displayNames[userId] || 'Unknown User'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input
+            value={getStringValue(value)}
+            onChange={(e) => onChange(field, e.target.value)}
+            placeholder="Enter lead owner name..."
+          />
         );
 
       case 'priority':

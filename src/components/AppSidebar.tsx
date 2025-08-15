@@ -33,14 +33,15 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ isFixed = false, isOpen, onToggle }: AppSidebarProps) {
-  const [isPinned, setIsPinned] = useState(true);
+  // Start collapsed by default
+  const [isPinned, setIsPinned] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const currentPath = location.pathname;
 
   // Use external state if provided (for fixed mode), otherwise use internal state
-  const sidebarOpen = isFixed ? (isOpen ?? true) : isPinned;
+  const sidebarOpen = isFixed ? (isOpen ?? false) : isPinned;
   const setSidebarOpen = isFixed ? (onToggle || (() => {})) : setIsPinned;
 
   const isActive = (path: string) => {

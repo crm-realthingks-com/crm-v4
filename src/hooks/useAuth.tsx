@@ -8,6 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,6 +59,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const refreshUser = async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      
+      // Force a fresh session to get updated user metadata
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      
+      setUser(user);
+      setSession(session);
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     let sessionFetched = false;
@@ -91,6 +108,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (window.location.pathname === '/auth') {
             window.location.replace('/');
           }
+        }
+        
+        if (event === 'TOKEN_REFRESHED' && session) {
+          // Update user data when token is refreshed (role changes, etc.)
+          setSession(session);
+          setUser(session.user);
         }
         
         setLoading(false);
@@ -164,6 +187,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     session,
     loading,
     signOut,
+    refreshUser,
   };
 
   return (

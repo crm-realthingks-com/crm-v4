@@ -53,7 +53,8 @@ export const LeadSearchableDropdown = ({
       setLoading(true);
       const { data, error } = await supabase
         .from('leads')
-        .select('id, lead_name, company_name, country, created_by')
+        .select('id, lead_name, company_name, country, created_by, lead_status')
+        .neq('lead_status', 'Converted') // Only show leads that haven't been converted to deals yet
         .order('lead_name', { ascending: true });
 
       if (error) throw error;

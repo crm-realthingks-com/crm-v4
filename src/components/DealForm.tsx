@@ -109,11 +109,11 @@ export const DealForm = ({ deal, isOpen, onClose, onSave, isCreating = false, in
         description: isCreating ? "Deal created successfully" : "Deal updated successfully",
       });
       
-      onClose();
-      
       if (onRefresh) {
-        setTimeout(onRefresh, 100);
+        await onRefresh();
       }
+      
+      onClose();
     } catch (error) {
       console.error("=== DEAL FORM SAVE ERROR ===");
       console.error("Error details:", error);

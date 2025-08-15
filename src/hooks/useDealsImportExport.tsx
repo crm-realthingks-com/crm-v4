@@ -1,6 +1,7 @@
+
 import { useAuth } from '@/hooks/useAuth';
 import { getExportFilename } from '@/utils/exportUtils';
-import { DealsCSVProcessor } from './import-export/dealsCSVProcessor';
+import { SimpleDealsCSVProcessor } from './import-export/simpleDealsCSVProcessor';
 import { DealsCSVExporter } from './import-export/dealsCSVExporter';
 import { toast } from '@/hooks/use-toast';
 
@@ -12,12 +13,7 @@ export const useDealsImportExport = ({ onRefresh }: DealsImportExportOptions) =>
   const { user } = useAuth();
   
   const handleImport = async (file: File) => {
-    console.log('useDealsImportExport: Starting import process');
-    console.log('useDealsImportExport: File details:', { 
-      name: file.name, 
-      size: file.size, 
-      type: file.type 
-    });
+    console.log('useDealsImportExport: Starting import process with centralized logic');
 
     if (!user?.id) {
       const errorMsg = 'User not authenticated. Please log in and try again.';
@@ -59,7 +55,7 @@ export const useDealsImportExport = ({ onRefresh }: DealsImportExportOptions) =>
       // Show initial loading toast
       toast({
         title: "Import Started",
-        description: `Processing ${file.name}...`,
+        description: `Processing ${file.name} with global date format...`,
       });
 
       const text = await file.text();
@@ -75,10 +71,10 @@ export const useDealsImportExport = ({ onRefresh }: DealsImportExportOptions) =>
         throw new Error('CSV file must contain at least a header row and one data row');
       }
 
-      console.log('useDealsImportExport: CSV has', lines.length, 'lines');
+      console.log('useDealsImportExport: CSV has', lines.length, 'lines (including header)');
 
-      const processor = new DealsCSVProcessor();
-      console.log('useDealsImportExport: CSV processor created');
+      const processor = new SimpleDealsCSVProcessor();
+      console.log('useDealsImportExport: Starting processing with centralized date conversion logic');
       
       const result = await processor.processCSV(text, {
         userId: user.id,
@@ -90,8 +86,6 @@ export const useDealsImportExport = ({ onRefresh }: DealsImportExportOptions) =>
       console.log('useDealsImportExport: Processing complete:', result);
 
       const { successCount, updateCount, duplicateCount, errorCount, errors } = result;
-
-      console.log(`useDealsImportExport: Import completed - Success: ${successCount}, Updates: ${updateCount}, Errors: ${errorCount}, Duplicates: ${duplicateCount}`);
 
       // Generate success message
       let message = '';
@@ -106,8 +100,15 @@ export const useDealsImportExport = ({ onRefresh }: DealsImportExportOptions) =>
           description: message || "Import completed successfully",
         });
         
-        console.log('useDealsImportExport: Refreshing data after successful import...');
+        console.log('useDealsImportExport: Import successful - triggering real-time refresh...');
+        
+        // Trigger immediate refresh for both List & Kanban views
         onRefresh();
+        
+        // Dispatch custom event for real-time updates in other components
+        window.dispatchEvent(new CustomEvent('deals-data-updated', {
+          detail: { successCount, updateCount, source: 'csv-import' }
+        }));
       } else if (errorCount > 0) {
         toast({
           title: "Import Failed",
@@ -144,7 +145,7 @@ export const useDealsImportExport = ({ onRefresh }: DealsImportExportOptions) =>
   };
 
   const handleExportAll = async (data: any[]) => {
-    console.log(`useDealsImportExport: Exporting all deals:`, data?.length || 0, 'records');
+    console.log(`useDealsImportExport: Exporting all deals with global date format:`, data?.length || 0, 'records');
     const filename = getExportFilename('deals', 'all');
     const exporter = new DealsCSVExporter();
     await exporter.exportToCSV(data, filename);
@@ -153,14 +154,14 @@ export const useDealsImportExport = ({ onRefresh }: DealsImportExportOptions) =>
   const handleExportSelected = async (data: any[], selectedIds: string[]) => {
     const selectedData = data.filter(item => selectedIds.includes(item.id));
     const filename = getExportFilename('deals', 'selected');
-    console.log(`useDealsImportExport: Exporting selected deals:`, selectedData.length, 'records');
+    console.log(`useDealsImportExport: Exporting selected deals with global date format:`, selectedData.length, 'records');
     const exporter = new DealsCSVExporter();
     await exporter.exportToCSV(selectedData, filename);
   };
 
   const handleExportFiltered = async (filteredData: any[]) => {
     const filename = getExportFilename('deals', 'filtered');
-    console.log(`useDealsImportExport: Exporting filtered deals:`, filteredData.length, 'records');
+    console.log(`useDealsImportExport: Exporting filtered deals with global date format:`, filteredData.length, 'records');
     const exporter = new DealsCSVExporter();
     await exporter.exportToCSV(filteredData, filename);
   };

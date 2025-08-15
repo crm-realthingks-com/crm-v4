@@ -9,9 +9,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import Dashboard from "./pages/Dashboard";
 import Contacts from "./pages/Contacts";
 import Leads from "./pages/Leads";
-import Meetings from "./pages/Meetings";
 import DealsPage from "./pages/DealsPage";
-import Feeds from "./pages/Feeds";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -22,7 +20,7 @@ const queryClient = new QueryClient();
 
 // Layout Component for pages with fixed sidebar
 const FixedSidebarLayout = ({ children }: { children: React.ReactNode }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Start collapsed
   
   return (
     <div className="min-h-screen flex w-full">
@@ -141,19 +139,9 @@ const App = () => (
                 <Leads />
               </ProtectedRoute>
             } />
-            <Route path="/meetings" element={
-              <ProtectedRoute>
-                <Meetings />
-              </ProtectedRoute>
-            } />
             <Route path="/deals" element={
               <ProtectedRoute>
                 <DealsPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/feeds" element={
-              <ProtectedRoute>
-                <Feeds />
               </ProtectedRoute>
             } />
             <Route path="/settings" element={
