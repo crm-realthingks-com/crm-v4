@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useSecurityContext } from "@/components/SecurityProvider";
 import { MoreHorizontal, Plus, RefreshCw, Shield, ShieldAlert } from "lucide-react";
 import { format } from "date-fns";
 import UserModal from "./UserModal";
@@ -41,7 +40,6 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
   const { refreshUser } = useAuth();
-  const { hasAdminAccess } = useSecurityContext();
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -215,20 +213,6 @@ const UserManagement = () => {
     
     loadData();
   }, [fetchUsers]);
-
-  // Check if user has admin access
-  if (!hasAdminAccess) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Access Denied</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">You don't have permission to access user management.</p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   if (loading) {
     return (
