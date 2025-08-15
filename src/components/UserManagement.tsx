@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +13,7 @@ import UserModal from "./UserModal";
 import EditUserModal from "./EditUserModal";
 import ChangeRoleModal from "./ChangeRoleModal";
 import DeleteUserDialog from "./DeleteUserDialog";
+import ResetPasswordDialog from "./ResetPasswordDialog";
 
 interface User {
   id: string;
@@ -35,6 +35,7 @@ const UserManagement = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
   const { refreshUser } = useAuth();
@@ -103,6 +104,11 @@ const UserManagement = () => {
   const handleChangeRole = useCallback((user: User) => {
     setSelectedUser(user);
     setShowRoleModal(true);
+  }, []);
+
+  const handleResetPassword = useCallback((user: User) => {
+    setSelectedUser(user);
+    setShowResetPasswordDialog(true);
   }, []);
 
   const handleToggleUserStatus = useCallback(async (user: User) => {
@@ -268,6 +274,9 @@ const UserManagement = () => {
                         <DropdownMenuItem onClick={() => handleChangeRole(user)}>
                           Change Role
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleResetPassword(user)}>
+                          Reset Password
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleToggleUserStatus(user)}>
                           {user.banned_until ? 'Activate' : 'Deactivate'}
                         </DropdownMenuItem>
@@ -316,6 +325,13 @@ const UserManagement = () => {
       <DeleteUserDialog 
         open={showDeleteDialog} 
         onClose={() => setShowDeleteDialog(false)}
+        user={selectedUser}
+        onSuccess={handleUserSuccess}
+      />
+      
+      <ResetPasswordDialog 
+        open={showResetPasswordDialog} 
+        onClose={() => setShowResetPasswordDialog(false)}
         user={selectedUser}
         onSuccess={handleUserSuccess}
       />

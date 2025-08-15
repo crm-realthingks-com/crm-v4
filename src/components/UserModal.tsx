@@ -17,22 +17,42 @@ interface UserModalProps {
 const UserModal = ({ open, onClose, onSuccess }: UserModalProps) => {
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [password, setPassword] = useState('');
   const [role, setRole] = useState('user');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!password.trim()) {
+      toast({
+        title: "Error",
+        description: "Password is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { error } = await supabase.functions.invoke('admin-users', {
+      const { error } = await supabase.functions.invoke('user-admin', {
         method: 'POST',
         body: {
           email,
           displayName,
           role,
-          password: generateRandomPassword()
+          password
         }
       });
 
@@ -57,13 +77,10 @@ const UserModal = ({ open, onClose, onSuccess }: UserModalProps) => {
     }
   };
 
-  const generateRandomPassword = () => {
-    return Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
-  };
-
   const handleClose = () => {
     setEmail('');
     setDisplayName('');
+    setPassword('');
     setRole('user');
     onClose();
   };
@@ -95,6 +112,19 @@ const UserModal = ({ open, onClose, onSuccess }: UserModalProps) => {
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Full Name"
               required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password (min 6 characters)"
+              required
+              minLength={6}
             />
           </div>
           

@@ -75,9 +75,43 @@ serve(async (req) => {
       );
     }
 
-    // POST - Create new user
+    // POST - Create new user or reset password
     if (req.method === 'POST') {
-      const { email, displayName, role, password } = await req.json();
+      const body = await req.json();
+      
+      // Handle password reset
+      if (body.action === 'reset-password') {
+        const { email } = body;
+        console.log('Resetting password for:', email);
+
+        const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'recovery',
+          email: email,
+        });
+
+        if (error) {
+          console.error('Error generating reset link:', error);
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('Password reset link generated successfully');
+        return new Response(
+          JSON.stringify({ 
+            success: true,
+            message: 'Password reset email sent successfully'
+          }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      // Handle user creation
+      const { email, displayName, role, password } = body;
       console.log('Creating user:', email, 'with role:', role);
 
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
