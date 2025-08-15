@@ -16,7 +16,7 @@ serve(async (req) => {
   try {
     console.log('User admin function called with method:', req.method);
 
-    // Create admin client
+    // Create admin client with service role key for full access
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -28,12 +28,12 @@ serve(async (req) => {
       }
     );
 
-    // Verify the user making the request is authenticated
+    // Verify the user making the request is authenticated and is admin
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error('No authorization header');
       return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
+        JSON.stringify({ error: 'Authentication required' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -44,12 +44,22 @@ serve(async (req) => {
     if (authError || !user.user) {
       console.error('Authentication error:', authError);
       return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
+        JSON.stringify({ error: 'Invalid authentication token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('User authenticated:', user.user.email);
+    // Check if user has admin role
+    const isAdmin = user.user.user_metadata?.role === 'admin';
+    if (!isAdmin) {
+      console.error('User is not admin:', user.user.email);
+      return new Response(
+        JSON.stringify({ error: 'Admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Admin user authenticated:', user.user.email);
 
     // GET - List all users
     if (req.method === 'GET') {
@@ -60,7 +70,7 @@ serve(async (req) => {
       if (error) {
         console.error('Error listing users:', error);
         return new Response(
-          JSON.stringify({ error: error.message }),
+          JSON.stringify({ error: `Failed to fetch users: ${error.message}` }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -82,6 +92,13 @@ serve(async (req) => {
       // Handle password reset
       if (body.action === 'reset-password') {
         const { email } = body;
+        if (!email) {
+          return new Response(
+            JSON.stringify({ error: 'Email is required for password reset' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         console.log('Resetting password for:', email);
 
         const { data, error } = await supabaseAdmin.auth.admin.generateLink({
@@ -92,7 +109,7 @@ serve(async (req) => {
         if (error) {
           console.error('Error generating reset link:', error);
           return new Response(
-            JSON.stringify({ error: error.message }),
+            JSON.stringify({ error: `Password reset failed: ${error.message}` }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -112,14 +129,22 @@ serve(async (req) => {
 
       // Handle user creation
       const { email, displayName, role, password } = body;
-      console.log('Creating user:', email, 'with role:', role);
+      
+      if (!email || !password || !displayName) {
+        return new Response(
+          JSON.stringify({ error: 'Email, password, and display name are required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Creating user:', email, 'with role:', role || 'user');
 
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
         user_metadata: {
           full_name: displayName,
-          role: role
+          role: role || 'user'
         },
         email_confirm: true
       });
@@ -127,31 +152,39 @@ serve(async (req) => {
       if (error) {
         console.error('Error creating user:', error);
         return new Response(
-          JSON.stringify({ error: error.message }),
+          JSON.stringify({ error: `User creation failed: ${error.message}` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       // Create profile record
-      try {
-        const { error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .insert({
-            id: data.user?.id,
-            full_name: displayName,
-            'Email ID': email
-          });
+      if (data.user) {
+        try {
+          const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .insert({
+              id: data.user.id,
+              full_name: displayName,
+              'Email ID': email
+            });
 
-        if (profileError) {
-          console.warn('Profile creation failed:', profileError);
+          if (profileError) {
+            console.warn('Profile creation failed:', profileError);
+          } else {
+            console.log('Profile created successfully for:', email);
+          }
+        } catch (profileErr) {
+          console.warn('Profile creation error:', profileErr);
         }
-      } catch (profileErr) {
-        console.warn('Profile creation error:', profileErr);
       }
 
       console.log('User created successfully:', data.user?.email);
       return new Response(
-        JSON.stringify({ user: data.user }),
+        JSON.stringify({ 
+          success: true,
+          user: data.user,
+          message: 'User created successfully'
+        }),
         { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -159,35 +192,45 @@ serve(async (req) => {
       );
     }
 
-    // PUT - Update user
+    // PUT - Update user (including role changes, activation/deactivation)
     if (req.method === 'PUT') {
       const { userId, displayName, role, action } = await req.json();
-      console.log('Updating user:', userId, 'action:', action, 'role:', role);
+      
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: 'User ID is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Updating user:', userId, 'action:', action, 'role:', role, 'displayName:', displayName);
 
       // Prepare update data
       let updateData: any = {};
 
-      if (displayName !== undefined) {
-        updateData.user_metadata = { 
-          ...updateData.user_metadata,
-          full_name: displayName 
-        };
+      // Handle role and display name updates
+      if (displayName !== undefined || role !== undefined) {
+        updateData.user_metadata = {};
+        
+        if (displayName !== undefined) {
+          updateData.user_metadata.full_name = displayName;
+        }
+        
+        if (role !== undefined) {
+          updateData.user_metadata.role = role;
+        }
       }
 
-      if (role !== undefined) {
-        updateData.user_metadata = { 
-          ...updateData.user_metadata,
-          role: role 
-        };
-      }
-
+      // Handle user activation/deactivation
       if (action === 'activate') {
         updateData.ban_duration = 'none';
+        console.log('Activating user:', userId);
       } else if (action === 'deactivate') {
-        updateData.ban_duration = '876000h';
+        updateData.ban_duration = '876000h'; // ~100 years
+        console.log('Deactivating user:', userId);
       }
 
-      console.log('Update data prepared:', updateData);
+      console.log('Update data prepared:', JSON.stringify(updateData, null, 2));
 
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
         userId,
@@ -197,7 +240,7 @@ serve(async (req) => {
       if (error) {
         console.error('Error updating user:', error);
         return new Response(
-          JSON.stringify({ error: error.message }),
+          JSON.stringify({ error: `User update failed: ${error.message}` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -212,13 +255,15 @@ serve(async (req) => {
 
           if (profileError) {
             console.warn('Profile update failed:', profileError);
+          } else {
+            console.log('Profile updated successfully for user:', userId);
           }
         } catch (profileErr) {
           console.warn('Profile update error:', profileErr);
         }
       }
 
-      console.log('User updated successfully');
+      console.log('User updated successfully:', userId);
       return new Response(
         JSON.stringify({ 
           success: true,
@@ -237,14 +282,13 @@ serve(async (req) => {
       const { userId } = await req.json();
       
       if (!userId) {
-        console.error('No userId provided for deletion');
         return new Response(
           JSON.stringify({ error: 'User ID is required for deletion' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log('Attempting to delete user:', userId);
+      console.log('Deleting user:', userId);
 
       try {
         // First delete profile record
@@ -266,7 +310,7 @@ serve(async (req) => {
           console.error('Error deleting auth user:', authDeleteError);
           return new Response(
             JSON.stringify({ 
-              error: `Failed to delete user: ${authDeleteError.message}` 
+              error: `User deletion failed: ${authDeleteError.message}` 
             }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
@@ -289,15 +333,16 @@ serve(async (req) => {
         console.error('Unexpected error during user deletion:', deleteError);
         return new Response(
           JSON.stringify({ 
-            error: `Unexpected error during deletion: ${deleteError.message || 'Unknown error'}` 
+            error: `Deletion failed: ${deleteError.message || 'Unknown error'}` 
           }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
     }
 
+    // Method not allowed
     return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
+      JSON.stringify({ error: `Method ${req.method} not allowed` }),
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
@@ -306,7 +351,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        details: error.message || 'Unknown error occurred'
+        details: error.message || 'An unexpected error occurred'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
