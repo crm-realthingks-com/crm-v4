@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useSecureDeals } from "@/hooks/useSecureDeals";
 import { Deal, DealStage } from "@/types/deal";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { ListView } from "@/components/ListView";
@@ -16,53 +16,137 @@ const DealsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const { deals, loading, isAdmin, fetchDeals, createDeal, updateDeal, deleteDeal } = useSecureDeals();
-  
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [initialStage, setInitialStage] = useState<DealStage>('Lead');
   const [activeView, setActiveView] = useState<'kanban' | 'list'>('list');
 
+  const fetchDeals = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('deals')
+        .select('*')
+        .order('modified_at', { ascending: false });
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch deals",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setDeals((data || []) as unknown as Deal[]);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleUpdateDeal = async (dealId: string, updates: Partial<Deal>) => {
     try {
       console.log("=== HANDLE UPDATE DEAL DEBUG ===");
       console.log("Deal ID:", dealId);
       console.log("Updates:", updates);
-      console.log("User is admin:", isAdmin);
       
-      await updateDeal(dealId, updates);
+      const { data, error } = await supabase
+        .from('deals')
+        .update({ ...updates, modified_at: new Date().toISOString() })
+        .eq('id', dealId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase update error:", error);
+        throw error;
+      }
+
+      console.log("Update successful, data:", data);
+      
+      setDeals(prev => prev.map(deal => 
+        deal.id === dealId ? { ...deal, ...updates } : deal
+      ));
+      
+      toast({
+        title: "Success",
+        description: "Deal updated successfully",
+      });
     } catch (error) {
       console.error("Update deal error:", error);
-      // Error handling is done in the hook
+      toast({
+        title: "Error",
+        description: `Failed to update deal: ${error.message || 'Unknown error'}`,
+        variant: "destructive",
+      });
+      throw error;
     }
   };
 
   const handleSaveDeal = async (dealData: Partial<Deal>) => {
     try {
       if (isCreating) {
-        await createDeal(dealData);
+        const { data, error } = await supabase
+          .from('deals')
+          .insert([{ 
+            ...dealData, 
+            deal_name: dealData.project_name || 'Untitled Deal',
+            created_by: user?.id,
+            modified_by: user?.id 
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setDeals(prev => [data as unknown as Deal, ...prev]);
       } else if (selectedDeal) {
-        await updateDeal(selectedDeal.id, dealData);
+        const updateData = {
+          ...dealData,
+          deal_name: dealData.project_name || selectedDeal.project_name || 'Untitled Deal',
+          modified_at: new Date().toISOString(),
+          modified_by: user?.id
+        };
+        
+        await handleUpdateDeal(selectedDeal.id, updateData);
+        await fetchDeals();
       }
-      
-      // Close the form on successful save
-      handleCloseForm();
     } catch (error) {
       console.error("Error in handleSaveDeal:", error);
-      // Error handling is done in the hooks
+      throw error;
     }
   };
 
   const handleDeleteDeals = async (dealIds: string[]) => {
     try {
-      // Delete deals one by one (could be optimized with bulk delete)
-      for (const dealId of dealIds) {
-        await deleteDeal(dealId);
-      }
+      const { error } = await supabase
+        .from('deals')
+        .delete()
+        .in('id', dealIds);
+
+      if (error) throw error;
+
+      setDeals(prev => prev.filter(deal => !dealIds.includes(deal.id)));
+      
+      toast({
+        title: "Success",
+        description: `Deleted ${dealIds.length} deal(s)`,
+      });
     } catch (error) {
-      console.error("Error deleting deals:", error);
-      // Error handling is done in the hook
+      toast({
+        title: "Error",
+        description: "Failed to delete deals",
+        variant: "destructive",
+      });
     }
   };
 
@@ -99,6 +183,51 @@ const DealsPage = () => {
     }
   }, [user, authLoading, navigate]);
 
+  useEffect(() => {
+    if (user) {
+      fetchDeals();
+
+      // Set up real-time subscription
+      const channel = supabase
+        .channel('deals-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'deals'
+          },
+          (payload) => {
+            console.log('Real-time deal change:', payload);
+            
+            if (payload.eventType === 'INSERT') {
+              setDeals(prev => [payload.new as Deal, ...prev]);
+            } else if (payload.eventType === 'UPDATE') {
+              setDeals(prev => prev.map(deal => 
+                deal.id === payload.new.id ? { ...deal, ...payload.new } as Deal : deal
+              ));
+            } else if (payload.eventType === 'DELETE') {
+              setDeals(prev => prev.filter(deal => deal.id !== payload.old.id));
+            }
+          }
+        )
+        .subscribe();
+
+      // Listen for custom import events
+      const handleImportEvent = () => {
+        console.log('DealsPage: Received deals-data-updated event, refreshing...');
+        fetchDeals();
+      };
+      
+      window.addEventListener('deals-data-updated', handleImportEvent);
+
+      return () => {
+        supabase.removeChannel(channel);
+        window.removeEventListener('deals-data-updated', handleImportEvent);
+      };
+    }
+  }, [user]);
+
   if (authLoading || loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
@@ -121,10 +250,7 @@ const DealsPage = () => {
         <div className="px-6 py-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-                Deals Pipeline
-                {isAdmin && <span className="ml-2 text-sm text-muted-foreground">(Admin View)</span>}
-              </h1>
+              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Deals Pipeline</h1>
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-shrink-0">
               <div className="bg-muted rounded-lg p-1 flex">

@@ -4,52 +4,79 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-interface AppUser {
+interface User {
   id: string;
-  email?: string;
-  created_at?: string;
-  last_sign_in_at?: string;
-  user_metadata?: {
+  email: string;
+  user_metadata: {
     full_name?: string;
     role?: string;
   };
-  banned_until?: string;
 }
 
 interface DeleteUserDialogProps {
-  user: AppUser;
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
-  onUserDeleted: () => void;
+  user: User | null;
+  onSuccess: () => void;
 }
 
-const DeleteUserDialog = ({ user, isOpen, onClose, onUserDeleted }: DeleteUserDialogProps) => {
+const DeleteUserDialog = ({ open, onClose, user, onSuccess }: DeleteUserDialogProps) => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleDeleteUser = async () => {
+  const handleDelete = async () => {
+    if (!user) return;
+    
     setLoading(true);
 
     try {
-      const { error } = await supabase.functions.invoke('user-admin', {
+      console.log('Starting user deletion for:', user.id);
+      
+      toast({
+        title: "Deleting User",
+        description: "Please wait while we delete the user account...",
+      });
+
+      const { data, error } = await supabase.functions.invoke('user-admin', {
         method: 'DELETE',
         body: { userId: user.id }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || "Failed to delete user");
+      }
 
-      toast({
-        title: "Success",
-        description: "User deleted successfully",
-      });
+      if (data?.success) {
+        console.log('User deletion successful:', data);
+        
+        toast({
+          title: "Success",
+          description: `User "${user.user_metadata?.full_name || user.email}" has been deleted successfully.`,
+        });
+        
+        onSuccess();
+        onClose();
+      } else {
+        throw new Error(data?.error || "Failed to delete user");
+      }
       
-      onUserDeleted();
-      onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting user:', error);
+      
+      let errorMessage = "An unexpected error occurred while deleting the user.";
+      
+      if (error.message?.includes("Failed to fetch")) {
+        errorMessage = "Network error occurred. Please check your connection and try again.";
+      } else if (error.message?.includes("Authentication")) {
+        errorMessage = "Authentication error. Please refresh the page and try again.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
-        title: "Error",
-        description: "Failed to delete user",
+        title: "Delete Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -57,20 +84,32 @@ const DeleteUserDialog = ({ user, isOpen, onClose, onUserDeleted }: DeleteUserDi
     }
   };
 
+  const handleClose = () => {
+    if (!loading) {
+      onClose();
+    }
+  };
+
+  if (!user) return null;
+
   return (
-    <AlertDialog open={isOpen} onOpenChange={onClose}>
+    <AlertDialog open={open} onOpenChange={handleClose}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete User</AlertDialogTitle>
+          <AlertDialogTitle>Delete User Account</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete "{user.user_metadata?.full_name || user.email || user.id}"?
-            This action cannot be undone and will permanently remove the user and all associated data.
+            Are you sure you want to permanently delete the user "{user.user_metadata?.full_name || user.email}"? 
+            <br /><br />
+            <strong>This action cannot be undone and will:</strong>
+            <br />• Remove the user from the authentication system
+            <br />• Delete all associated profile data
+            <br />• Revoke all access permissions immediately
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={handleDeleteUser}
+            onClick={handleDelete}
             disabled={loading}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >

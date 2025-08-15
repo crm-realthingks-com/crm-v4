@@ -4,37 +4,28 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-interface AppUser {
+interface User {
   id: string;
-  email?: string;
-  created_at?: string;
-  last_sign_in_at?: string;
-  user_metadata?: {
+  email: string;
+  user_metadata: {
     full_name?: string;
     role?: string;
   };
-  banned_until?: string;
 }
 
 interface ResetPasswordDialogProps {
-  user: AppUser;
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
+  user: User | null;
+  onSuccess: () => void;
 }
 
-const ResetPasswordDialog = ({ user, isOpen, onClose }: ResetPasswordDialogProps) => {
+const ResetPasswordDialog = ({ open, onClose, user, onSuccess }: ResetPasswordDialogProps) => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const handleResetPassword = async () => {
-    if (!user.email) {
-      toast({
-        title: "Error",
-        description: "User email is required for password reset",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!user) return;
     
     setLoading(true);
 
@@ -67,6 +58,7 @@ const ResetPasswordDialog = ({ user, isOpen, onClose }: ResetPasswordDialogProps
           description: `Password reset email has been sent to ${user.email}`,
         });
         
+        onSuccess();
         onClose();
       } else {
         throw new Error(data?.error || "Failed to send reset password email");
@@ -101,16 +93,18 @@ const ResetPasswordDialog = ({ user, isOpen, onClose }: ResetPasswordDialogProps
     }
   };
 
+  if (!user) return null;
+
   return (
-    <AlertDialog open={isOpen} onOpenChange={handleClose}>
+    <AlertDialog open={open} onOpenChange={handleClose}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Reset User Password</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to send a password reset email to "{user.user_metadata?.full_name || user.email || user.id}"?
+            Are you sure you want to send a password reset email to "{user.user_metadata?.full_name || user.email}"?
             <br /><br />
             <strong>This will:</strong>
-            <br />• Send a password reset email to {user.email || 'the user'}
+            <br />• Send a password reset email to {user.email}
             <br />• Allow the user to create a new password
             <br />• The reset link will expire after 1 hour
           </AlertDialogDescription>
@@ -119,7 +113,7 @@ const ResetPasswordDialog = ({ user, isOpen, onClose }: ResetPasswordDialogProps
           <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleResetPassword}
-            disabled={loading || !user.email}
+            disabled={loading}
           >
             {loading ? 'Sending...' : 'Send Reset Email'}
           </AlertDialogAction>
