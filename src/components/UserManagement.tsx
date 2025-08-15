@@ -14,7 +14,7 @@ import DeleteUserDialog from "@/components/DeleteUserDialog";
 import UserModal from "@/components/UserModal";
 import ResetPasswordDialog from "@/components/ResetPasswordDialog";
 
-interface User {
+interface AppUser {
   id: string;
   email?: string;
   created_at?: string;
@@ -27,10 +27,10 @@ interface User {
 }
 
 const UserManagement = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -75,17 +75,17 @@ const UserManagement = () => {
     return userRoles.filter(ur => ur.user_id === userId);
   };
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: AppUser) => {
     setSelectedUser(user);
     setIsEditModalOpen(true);
   };
 
-  const handleDeleteUser = (user: User) => {
+  const handleDeleteUser = (user: AppUser) => {
     setSelectedUser(user);
     setIsDeleteDialogOpen(true);
   };
 
-  const handleResetPassword = (user: User) => {
+  const handleResetPassword = (user: AppUser) => {
     setSelectedUser(user);
     setIsResetPasswordOpen(true);
   };
@@ -209,39 +209,43 @@ const UserManagement = () => {
       <UserRoleManager users={users} />
 
       {/* Modals and Dialogs */}
-      <EditUserModal
-        user={selectedUser}
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setSelectedUser(null);
-        }}
-        onUserUpdated={fetchUsers}
-      />
+      {selectedUser && (
+        <>
+          <EditUserModal
+            user={selectedUser}
+            isOpen={isEditModalOpen}
+            onClose={() => {
+              setIsEditModalOpen(false);
+              setSelectedUser(null);
+            }}
+            onUserUpdated={fetchUsers}
+          />
 
-      <DeleteUserDialog
-        user={selectedUser}
-        isOpen={isDeleteDialogOpen}
-        onClose={() => {
-          setIsDeleteDialogOpen(false);
-          setSelectedUser(null);
-        }}
-        onUserDeleted={fetchUsers}
-      />
+          <DeleteUserDialog
+            user={selectedUser}
+            isOpen={isDeleteDialogOpen}
+            onClose={() => {
+              setIsDeleteDialogOpen(false);
+              setSelectedUser(null);
+            }}
+            onUserDeleted={fetchUsers}
+          />
+
+          <ResetPasswordDialog
+            user={selectedUser}
+            isOpen={isResetPasswordOpen}
+            onClose={() => {
+              setIsResetPasswordOpen(false);
+              setSelectedUser(null);
+            }}
+          />
+        </>
+      )}
 
       <UserModal
-        isOpen={isCreateModalOpen}
+        open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onUserCreated={fetchUsers}
-      />
-
-      <ResetPasswordDialog
-        user={selectedUser}
-        isOpen={isResetPasswordOpen}
-        onClose={() => {
-          setIsResetPasswordOpen(false);
-          setSelectedUser(null);
-        }}
+        onSuccess={fetchUsers}
       />
     </div>
   );

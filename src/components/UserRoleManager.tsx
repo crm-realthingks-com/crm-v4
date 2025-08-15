@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trash2, Plus } from 'lucide-react';
 
-interface User {
+interface AppUser {
   id: string;
   email?: string;
   user_metadata?: {
@@ -16,7 +16,7 @@ interface User {
 }
 
 interface UserRoleManagerProps {
-  users: User[];
+  users: AppUser[];
 }
 
 const UserRoleManager = ({ users }: UserRoleManagerProps) => {

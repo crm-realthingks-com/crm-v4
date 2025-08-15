@@ -28,12 +28,12 @@ export const useSecureDeals = () => {
     } catch (error: any) {
       console.error('Error fetching deals:', error);
       
-      // Log permission denial for debugging
+      // Log permission denial for debugging using existing function
       try {
-        await supabase.rpc('log_permission_denial', {
-          p_table_name: 'deals',
-          p_operation: 'SELECT',
-          p_details: { error: error.message }
+        await supabase.rpc('log_security_event', {
+          p_action: 'PERMISSION_DENIED',
+          p_resource_type: 'deals',
+          p_details: { error: error.message, operation: 'SELECT' }
         });
       } catch (logError) {
         console.error('Failed to log permission denial:', logError);
@@ -75,12 +75,12 @@ export const useSecureDeals = () => {
       if (error) {
         console.error('Supabase insert error:', error);
         
-        // Log permission denial for debugging
+        // Log permission denial for debugging using existing function
         try {
-          await supabase.rpc('log_permission_denial', {
-            p_table_name: 'deals',
-            p_operation: 'INSERT',
-            p_details: { error: error.message, data: dealToInsert }
+          await supabase.rpc('log_security_event', {
+            p_action: 'PERMISSION_DENIED',
+            p_resource_type: 'deals',
+            p_details: { error: error.message, data: dealToInsert, operation: 'INSERT' }
           });
         } catch (logError) {
           console.error('Failed to log permission denial:', logError);
@@ -131,12 +131,12 @@ export const useSecureDeals = () => {
       if (error) {
         console.error('Supabase update error:', error);
         
-        // Log permission denial for debugging
+        // Log permission denial for debugging using existing function
         try {
-          await supabase.rpc('log_permission_denial', {
-            p_table_name: 'deals',
-            p_operation: 'UPDATE',
-            p_details: { error: error.message, deal_id: id, updates: updateData }
+          await supabase.rpc('log_security_event', {
+            p_action: 'PERMISSION_DENIED',
+            p_resource_type: 'deals',
+            p_details: { error: error.message, deal_id: id, updates: updateData, operation: 'UPDATE' }
           });
         } catch (logError) {
           console.error('Failed to log permission denial:', logError);
@@ -176,12 +176,12 @@ export const useSecureDeals = () => {
       if (error) {
         console.error('Supabase delete error:', error);
         
-        // Log permission denial for debugging
+        // Log permission denial for debugging using existing function
         try {
-          await supabase.rpc('log_permission_denial', {
-            p_table_name: 'deals',
-            p_operation: 'DELETE',
-            p_details: { error: error.message, deal_id: id }
+          await supabase.rpc('log_security_event', {
+            p_action: 'PERMISSION_DENIED',
+            p_resource_type: 'deals',
+            p_details: { error: error.message, deal_id: id, operation: 'DELETE' }
           });
         } catch (logError) {
           console.error('Failed to log permission denial:', logError);
