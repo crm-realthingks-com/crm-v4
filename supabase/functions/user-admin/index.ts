@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.0';
 
@@ -29,7 +28,7 @@ serve(async (req) => {
       }
     );
 
-    // Verify the user making the request is authenticated and is admin
+    // Verify the user making the request is authenticated
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error('No authorization header');
@@ -50,22 +49,8 @@ serve(async (req) => {
       );
     }
 
-    // Check if user has admin role using server-controlled roles
-    const { data: roleData, error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.user.id)
-      .single();
-
-    if (roleError || !roleData || roleData.role !== 'admin') {
-      console.error('User is not admin:', user.user.email, 'Role:', roleData?.role);
-      return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Admin user authenticated:', user.user.email);
+    // NOTE: Admin role requirement removed — any authenticated user can proceed.
+    console.log('Authenticated request by:', user.user.email, 'Proceeding without admin role check.');
 
     // GET - List all users
     if (req.method === 'GET') {
