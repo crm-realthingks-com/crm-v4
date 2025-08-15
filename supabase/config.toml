@@ -1,45 +1,5 @@
 
 project_id = "krmgmrkrdyfhryrhfycs"
 
-[api]
-enabled = true
-port = 54321
-schemas = ["public", "graphql_public"]
-extra_search_path = ["public", "extensions"]
-max_rows = 1000
-
-[db]
-port = 54322
-
-[studio]
-enabled = true
-port = 54323
-
-[inbucket]
-enabled = true
-port = 54324
-smtp_port = 1025
-pop3_port = 1110
-
-[storage]
-enabled = true
-port = 54325
-
-[auth]
-enabled = true
-port = 54326
-
 [functions.user-admin]
-verify_jwt = true
-
-[functions.create-teams-meeting]
-verify_jwt = true
-
-[functions.fetch-user-display-names]
-verify_jwt = true
-
-[functions.get-user-names]
-verify_jwt = true
-
-[functions.security-monitor]
-verify_jwt = true
+verify_jwt = false

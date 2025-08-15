@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.0';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
 
 serve(async (req) => {
@@ -329,7 +330,7 @@ serve(async (req) => {
           }
         );
 
-      } catch (deleteError) {
+      } catch (deleteError: any) {
         console.error('Unexpected error during user deletion:', deleteError);
         return new Response(
           JSON.stringify({ 
@@ -346,7 +347,7 @@ serve(async (req) => {
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Unexpected error in user-admin function:', error);
     return new Response(
       JSON.stringify({ 
